@@ -1,5 +1,5 @@
 .PHONY: help check-deps check-deps-updates update-deps build build-foss build-release clean \
-        test-unit test-integration test-e2e test coverage privacy-benchmark \
+        test-unit test-integration test-e2e test-emulator-smoke test coverage privacy-benchmark \
         lint lint-fix \
         install install-release uninstall grant-permissions start-server forward-port \
         setup-emulator start-emulator stop-emulator \
@@ -160,6 +160,9 @@ test-integration: ## Run integration tests (JVM-based, no emulator required)
 
 test-e2e: ## Run E2E tests (requires rootful podman socket)
 	$(if $(wildcard .env),set -a && . ./.env && set +a &&,) DOCKER_HOST=unix:///run/podman/podman.sock TESTCONTAINERS_RYUK_DISABLED=true $(GRADLE) :e2e-tests:cleanTest :e2e-tests:test
+
+test-emulator-smoke: ## Smoke-test every MCP tool on a prepared emulator (SERIAL=emulator-5554 PORT=18090 [TOKEN=...]; see scripts/emulator-smoke/README.md)
+	python3 scripts/emulator-smoke/smoke.py --serial $(or $(SERIAL),emulator-5554) --port $(or $(PORT),18090) $(if $(TOKEN),--token $(TOKEN),)
 
 privacy-benchmark: ## Run the Privacy Mode effectiveness benchmark (downloads model + dataset to privacy-benchmark/.cache on first run)
 	$(GRADLE) :privacy-benchmark:run $(if $(BENCHMARK_ARGS),--args="$(BENCHMARK_ARGS)",)
