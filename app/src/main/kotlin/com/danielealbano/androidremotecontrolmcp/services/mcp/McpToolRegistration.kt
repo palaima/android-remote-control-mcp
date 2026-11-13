@@ -127,6 +127,7 @@ class McpToolRegistration
                 a.nodeCache,
                 privacy.privacyToolGate,
                 privacy.placeholderSubstitutor,
+                a.shizukuInputInjector,
                 toolNamePrefix,
                 perms,
             )

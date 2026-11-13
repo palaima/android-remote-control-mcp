@@ -346,6 +346,7 @@ object McpIntegrationTestHelper {
             deps.nodeCache,
             deps.privacyToolGate,
             deps.placeholderSubstitutor,
+            mockk(relaxed = true),
             toolNamePrefix,
             perms,
         )

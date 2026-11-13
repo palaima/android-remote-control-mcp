@@ -5,6 +5,7 @@ package com.danielealbano.androidremotecontrolmcp.mcp.tools
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
@@ -21,6 +22,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementF
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuInputInjector
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
@@ -231,8 +233,9 @@ private fun dispatchCommitText(
 ) {
     if (!ctx.controller.commitText(codePointStr, 1)) {
         throw McpToolException.ActionFailed(
-            "Input connection lost during typing at position $codePointIndex of ${ctx.codePointCount}. " +
-                "commitText returned false.",
+            "The field refused the text at position $codePointIndex of ${ctx.codePointCount} (commitText returned " +
+                "false). On Android 11 and 12, a field that refuses ACTION_SET_TEXT can only be typed into through " +
+                "Shizuku, which types printable ASCII only.",
         )
     }
 }
@@ -1299,6 +1302,7 @@ class PressKeyTool
     constructor(
         private val actionExecutor: ActionExecutor,
         private val accessibilityServiceProvider: AccessibilityServiceProvider,
+        private val shizukuInputInjector: ShizukuInputInjector,
     ) {
         @Suppress("ThrowsCount")
         suspend fun execute(arguments: JsonObject?): CallToolResult {
@@ -1337,11 +1341,11 @@ class PressKeyTool
                 }
 
                 "TAB" -> {
-                    appendCharToFocused('\t')
+                    appendCharToFocused('\t', KeyEvent.KEYCODE_TAB)
                 }
 
                 "SPACE" -> {
-                    appendCharToFocused(' ')
+                    appendCharToFocused(' ', KeyEvent.KEYCODE_SPACE)
                 }
             }
 
@@ -1365,7 +1369,7 @@ class PressKeyTool
             }
         }
 
-        private fun pressDelete() {
+        private suspend fun pressDelete() {
             val focusedNode =
                 findFocusedEditableNode(accessibilityServiceProvider)
                     ?: throw McpToolException.NodeNotFound(
@@ -1382,15 +1386,15 @@ class PressKeyTool
                             newText,
                         )
                     }
-                val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-                if (!success) {
-                    throw McpToolException.ActionFailed("DEL key action failed")
-                }
+                setTextOrPressKey(focusedNode, arguments, KeyEvent.KEYCODE_DEL)
             }
             // If text is already empty, DEL is a no-op (not an error)
         }
 
-        private fun appendCharToFocused(char: Char) {
+        private suspend fun appendCharToFocused(
+            char: Char,
+            keyCode: Int,
+        ) {
             val focusedNode =
                 findFocusedEditableNode(accessibilityServiceProvider)
                     ?: throw McpToolException.NodeNotFound(
@@ -1405,9 +1409,26 @@ class PressKeyTool
                         currentText + char,
                     )
                 }
-            val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-            if (!success) {
-                throw McpToolException.ActionFailed("Key input action failed")
+            setTextOrPressKey(focusedNode, arguments, keyCode)
+        }
+
+        /**
+         * Sets the text with ACTION_SET_TEXT; when the field does not offer or refuses it, sends [keyCode] as a key
+         * event through Shizuku instead.
+         */
+        private suspend fun setTextOrPressKey(
+            node: AccessibilityNodeInfo,
+            arguments: Bundle,
+            keyCode: Int,
+        ) {
+            val supportsSetText = node.actionList?.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT } == true
+            if (supportsSetText && node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+                return
+            }
+            if (!shizukuInputInjector.pressKey(keyCode)) {
+                throw McpToolException.ActionFailed(
+                    "The field refused ACTION_SET_TEXT and the Shizuku key event failed or Shizuku is not available",
+                )
             }
         }
 
@@ -1465,6 +1486,7 @@ fun registerTextInputTools(
     nodeCache: AccessibilityNodeCache,
     privacyToolGate: PrivacyToolGate,
     substitutor: PlaceholderSubstitutor,
+    shizukuInputInjector: ShizukuInputInjector,
     toolNamePrefix: String,
     perms: ToolPermissionsConfig,
 ) {
@@ -1517,7 +1539,8 @@ fun registerTextInputTools(
         ).register(registrar, toolNamePrefix)
     }
     if (perms.isToolEnabled(PressKeyTool.TOOL_NAME)) {
-        PressKeyTool(actionExecutor, accessibilityServiceProvider).register(registrar, toolNamePrefix)
+        PressKeyTool(actionExecutor, accessibilityServiceProvider, shizukuInputInjector)
+            .register(registrar, toolNamePrefix)
     }
 }
 

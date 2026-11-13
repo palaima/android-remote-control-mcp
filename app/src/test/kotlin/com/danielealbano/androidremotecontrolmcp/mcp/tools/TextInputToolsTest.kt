@@ -3,6 +3,7 @@
 package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
@@ -18,6 +19,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementF
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuInputInjector
 import com.danielealbano.androidremotecontrolmcp.testutil.FakeTextField
 import com.danielealbano.androidremotecontrolmcp.testutil.PrivacyToolTestDoubles
 import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
@@ -2165,7 +2167,25 @@ class TextInputToolsTest {
     @Nested
     @DisplayName("PressKeyTool")
     inner class PressKeyToolTests {
-        private val tool = PressKeyTool(mockActionExecutor, mockAccessibilityServiceProvider)
+        private val mockShizukuInputInjector = mockk<ShizukuInputInjector>()
+        private val tool = PressKeyTool(mockActionExecutor, mockAccessibilityServiceProvider, mockShizukuInputInjector)
+
+        private val setTextAction =
+            mockk<AccessibilityNodeInfo.AccessibilityAction> {
+                every { id } returns AccessibilityNodeInfo.ACTION_SET_TEXT
+            }
+
+        private fun focusedFieldWith(
+            text: String,
+            setTextSucceeds: Boolean,
+        ) {
+            every { mockAccessibilityServiceProvider.getRootNode() } returns mockRootNode
+            every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
+            every { mockFocusedNode.isEditable } returns true
+            every { mockFocusedNode.text } returns text
+            every { mockFocusedNode.actionList } returns listOf(setTextAction)
+            every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns setTextSucceeds
+        }
 
         @Test
         fun `presses BACK key`() =
@@ -2195,6 +2215,7 @@ class TextInputToolsTest {
                 every { mockAccessibilityServiceProvider.getRootNode() } returns mockRootNode
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
+                every { mockFocusedNode.actionList } returns listOf(setTextAction)
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
                 val params = buildJsonObject { put("key", "DEL") }
@@ -2212,6 +2233,7 @@ class TextInputToolsTest {
                 // cache first, corrupting the field. The clear MUST precede the tree read.
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
+                every { mockFocusedNode.actionList } returns listOf(setTextAction)
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
                 val params = buildJsonObject { put("key", "DEL") }
@@ -2230,6 +2252,7 @@ class TextInputToolsTest {
                 every { mockAccessibilityServiceProvider.getRootNode() } returns mockRootNode
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
+                every { mockFocusedNode.actionList } returns listOf(setTextAction)
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
                 val params = buildJsonObject { put("key", "SPACE") }
@@ -2237,6 +2260,44 @@ class TextInputToolsTest {
                 val result = tool.execute(params)
                 val text = extractTextContent(result)
                 assertTrue(text.contains("SPACE"))
+            }
+
+        @Test
+        fun `DEL falls back to a Shizuku key event when ACTION_SET_TEXT fails`() =
+            runTest {
+                focusedFieldWith("Hello", setTextSucceeds = false)
+                coEvery { mockShizukuInputInjector.pressKey(KeyEvent.KEYCODE_DEL) } returns true
+
+                val result = tool.execute(buildJsonObject { put("key", "DEL") })
+
+                assertTrue(extractTextContent(result).contains("DEL"))
+                coVerify(exactly = 1) { mockShizukuInputInjector.pressKey(KeyEvent.KEYCODE_DEL) }
+            }
+
+        @Test
+        fun `SPACE falls back to a Shizuku key event when ACTION_SET_TEXT fails`() =
+            runTest {
+                focusedFieldWith("Hello", setTextSucceeds = false)
+                coEvery { mockShizukuInputInjector.pressKey(KeyEvent.KEYCODE_SPACE) } returns true
+
+                val result = tool.execute(buildJsonObject { put("key", "SPACE") })
+
+                assertTrue(extractTextContent(result).contains("SPACE"))
+                coVerify(exactly = 1) { mockShizukuInputInjector.pressKey(KeyEvent.KEYCODE_SPACE) }
+            }
+
+        @Test
+        fun `throws ActionFailed when ACTION_SET_TEXT and the Shizuku key event both fail`() =
+            runTest {
+                focusedFieldWith("Hello", setTextSucceeds = false)
+                coEvery { mockShizukuInputInjector.pressKey(any()) } returns false
+
+                val exception =
+                    assertThrows<McpToolException.ActionFailed> {
+                        tool.execute(buildJsonObject { put("key", "DEL") })
+                    }
+
+                assertTrue(exception.message!!.contains("refused ACTION_SET_TEXT"), exception.message)
             }
 
         @Test
