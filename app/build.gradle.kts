@@ -434,6 +434,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.hiddenapibypass)
     implementation(libs.process.phoenix)
 
     // Hilt

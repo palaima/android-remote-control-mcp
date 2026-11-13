@@ -36,6 +36,7 @@ class McpToolRegistrationTest {
                 deps.nodeCache,
                 deps.typeInputController,
                 mockk(relaxed = true),
+                mockk(relaxed = true),
             ),
             ScreenToolDeps(
                 deps.screenCaptureProvider,

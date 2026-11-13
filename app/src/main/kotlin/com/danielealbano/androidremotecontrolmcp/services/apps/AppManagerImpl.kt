@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.core.content.pm.PackageInfoCompat
 import com.danielealbano.androidremotecontrolmcp.data.model.AppFilter
 import com.danielealbano.androidremotecontrolmcp.data.model.AppInfo
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuCommandRunner
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -22,6 +23,7 @@ class AppManagerImpl
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val shizukuCommandRunner: ShizukuCommandRunner,
     ) : AppManager {
         override suspend fun listInstalledApps(
             filter: AppFilter,
@@ -84,12 +86,31 @@ class AppManagerImpl
                 Result.failure(e)
             }
 
-        override suspend fun closeApp(packageId: String): Result<Unit> {
-            val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            activityManager.killBackgroundProcesses(packageId)
-            Log.i(TAG, "Requested kill of background processes for: $packageId")
-            return Result.success(Unit)
-        }
+        override suspend fun closeApp(packageId: String): Result<AppCloseMethod> =
+            when {
+                !isValidPackageName(packageId) -> {
+                    Result.failure(IllegalArgumentException("'$packageId' is not a valid package name"))
+                }
+
+                shizukuCommandRunner.isAvailable() -> {
+                    forceStop(packageId)
+                }
+
+                else -> {
+                    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                    activityManager.killBackgroundProcesses(packageId)
+                    Log.i(TAG, "Requested kill of background processes for: $packageId")
+                    Result.success(AppCloseMethod.BACKGROUND_KILL_REQUESTED)
+                }
+            }
+
+        private suspend fun forceStop(packageId: String): Result<AppCloseMethod> =
+            if (shizukuCommandRunner.run("am force-stop $packageId")) {
+                Log.i(TAG, "Force-stopped: $packageId")
+                Result.success(AppCloseMethod.FORCE_STOPPED)
+            } else {
+                Result.failure(IllegalStateException("'am force-stop' failed for $packageId"))
+            }
 
         companion object {
             private const val TAG = "MCP:AppManager"

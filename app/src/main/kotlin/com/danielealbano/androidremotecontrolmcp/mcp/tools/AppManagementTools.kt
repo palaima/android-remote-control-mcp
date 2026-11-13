@@ -5,7 +5,9 @@ import com.danielealbano.androidremotecontrolmcp.data.model.AppFilter
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 import com.danielealbano.androidremotecontrolmcp.privacy.PrivacyToolGate
+import com.danielealbano.androidremotecontrolmcp.services.apps.AppCloseMethod
 import com.danielealbano.androidremotecontrolmcp.services.apps.AppManager
+import com.danielealbano.androidremotecontrolmcp.services.apps.isValidPackageName
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
@@ -193,11 +195,12 @@ class ListAppsHandler
 /**
  * MCP tool handler for `close_app`.
  *
- * Kills a background application process.
+ * Closes an application: force-stops it through Shizuku when available, otherwise asks Android to kill its cached
+ * background processes.
  *
  * **Input**: `{ "package_id": "<string>" }`
  * **Output**: `{ "content": [{ "type": "text",
- *   "text": "Kill signal sent for application '<package_id>'..." }] }`
+ *   "text": "Application '<package_id>' was force-stopped..." }] }`
  */
 class CloseAppHandler
     @Inject
@@ -207,18 +210,35 @@ class CloseAppHandler
         @Suppress("TooGenericExceptionCaught")
         suspend fun execute(arguments: JsonObject?): CallToolResult {
             val packageId = McpToolUtils.requireString(arguments, "package_id")
-            if (packageId.isEmpty()) {
-                throw McpToolException.InvalidParams("Parameter 'package_id' must not be empty")
+            if (!isValidPackageName(packageId)) {
+                throw McpToolException.InvalidParams(
+                    if (packageId.isEmpty()) {
+                        "Parameter 'package_id' must not be empty"
+                    } else {
+                        "Parameter 'package_id' is not a valid package name: '$packageId'"
+                    },
+                )
             }
 
             Log.d(TAG, "Executing close_app for package: $packageId")
             val result = appManager.closeApp(packageId)
-            result.onFailure { e ->
-                throw McpToolException.ActionFailed("Failed to close application '$packageId': ${e.message}")
-            }
+            val method =
+                result.getOrElse { e ->
+                    throw McpToolException.ActionFailed("Failed to close application '$packageId': ${e.message}")
+                }
             return McpToolUtils.textResult(
-                "Kill signal sent for application '$packageId'. " +
-                    "Note: this only affects background processes.",
+                when (method) {
+                    AppCloseMethod.FORCE_STOPPED -> {
+                        "Application '$packageId' was force-stopped: all its processes were stopped."
+                    }
+
+                    AppCloseMethod.BACKGROUND_KILL_REQUESTED -> {
+                        "Requested Android to kill the cached background processes of '$packageId'. This cannot " +
+                            "be verified, and processes that are in the foreground or running a foreground " +
+                            "service keep running. Enable Shizuku and elevated commands in the app's Shell " +
+                            "settings to force-stop the app fully."
+                    }
+                },
             )
         }
 
@@ -230,11 +250,13 @@ class CloseAppHandler
                 toolName = TOOL_NAME,
                 name = "$toolNamePrefix$TOOL_NAME",
                 description =
-                    "Kills a background application process. This only works for apps " +
-                        "that are in the background. For foreground apps that are hung or " +
-                        "unresponsive, first use the '${toolNamePrefix}press_home' tool to send the app to the " +
-                        "background, then call this tool. Note: some system " +
-                        "processes may restart automatically after being killed.",
+                    "Closes an application. When Shizuku is ready and elevated commands are enabled, the app is " +
+                        "force-stopped ('am force-stop'), which stops all its processes, foreground ones " +
+                        "included. Without Shizuku, Android only allows killing cached background processes: " +
+                        "first use the '${toolNamePrefix}press_home' tool to send the app to the background; " +
+                        "the result cannot be verified and apps with a foreground service keep running. The " +
+                        "result text says which method was used. Note: some system processes may restart " +
+                        "automatically after being stopped.",
                 inputSchema =
                     ToolSchema(
                         properties =

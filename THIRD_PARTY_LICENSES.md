@@ -37,6 +37,7 @@ Gradle Plugin, ...) are not part of the app and are not listed.
 | ONNX Runtime (Android) | MIT; bundles third-party code listed in its ThirdPartyNotices.txt | https://github.com/microsoft/onnxruntime |
 | MCP Kotlin SDK | MIT | https://github.com/modelcontextprotocol/kotlin-sdk |
 | Shizuku API (`dev.rikka.shizuku:api`, `provider`, `aidl`, `shared`) | MIT | https://github.com/RikkaApps/Shizuku-API |
+| AndroidHiddenApiBypass (`org.lsposed.hiddenapibypass:hiddenapibypass`) | Apache-2.0 | https://github.com/LSPosed/AndroidHiddenApiBypass |
 | ProcessPhoenix (`com.jakewharton:process-phoenix`) | Apache-2.0 | https://github.com/JakeWharton/ProcessPhoenix |
 | java-jwt | MIT | https://github.com/auth0/java-jwt |
 | Jackson (`jackson-core`, `jackson-databind`, `jackson-annotations`) | Apache-2.0 | https://github.com/FasterXML/jackson |

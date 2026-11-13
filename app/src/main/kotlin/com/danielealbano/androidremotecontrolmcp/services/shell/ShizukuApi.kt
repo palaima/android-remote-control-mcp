@@ -2,9 +2,12 @@ package com.danielealbano.androidremotecontrolmcp.services.shell
 
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.IBinder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
+import rikka.shizuku.ShizukuBinderWrapper
+import rikka.shizuku.SystemServiceHelper
 import javax.inject.Inject
 
 interface ShizukuApi {
@@ -31,6 +34,12 @@ interface ShizukuApi {
         args: Shizuku.UserServiceArgs,
         connection: ServiceConnection,
     )
+
+    /**
+     * The binder of system service [name] (as passed to `ServiceManager.getService`), wrapped so that calls on it
+     * run as the Shizuku server's user (shell or root). Null when the service does not exist.
+     */
+    fun systemServiceBinder(name: String): IBinder?
 }
 
 class ShizukuApiImpl
@@ -64,4 +73,7 @@ class ShizukuApiImpl
             args: Shizuku.UserServiceArgs,
             connection: ServiceConnection,
         ) = Shizuku.unbindUserService(args, connection, true)
+
+        override fun systemServiceBinder(name: String): IBinder? =
+            SystemServiceHelper.getSystemService(name)?.let { ShizukuBinderWrapper(it) }
     }

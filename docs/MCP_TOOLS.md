@@ -1830,7 +1830,9 @@ curl -X POST http://localhost:8080/mcp \
 
 ### `android_get_clipboard`
 
-Get the current clipboard text content. Accessibility services are exempt from Android 10+ background clipboard restrictions.
+Get the current clipboard text content.
+
+Android lets only the focused app and the default keyboard read the clipboard; an accessibility service is not exempt. When Shizuku is ready and **Settings → Shell → Allow elevated commands** is on, the tool reads the clipboard through the system clipboard service as the adb shell user, which holds `READ_CLIPBOARD_IN_BACKGROUND`, so the read works while the app is in the background. This calls the hidden `IClipboard.getPrimaryClip` through reflection, because the SDK has no public API to read as another user.
 
 **Input Schema**:
 ```json
@@ -1845,7 +1847,7 @@ Get the current clipboard text content. Accessibility services are exempt from A
 ```json
 { "text": "clipboard content" }
 ```
-Returns `{ "text": null }` when clipboard is empty.
+Returns `{ "text": null }` when the clipboard is empty, or when its first item has no text. Without Shizuku, an empty clipboard and a denied read look the same (Android returns no clip for both), so when no clip is returned while the app is not focused, the tool returns an error instead of `null`.
 
 **Example**:
 ```bash
@@ -1860,7 +1862,8 @@ curl -X POST http://localhost:8080/mcp \
 
 **Error Cases** (returned as `CallToolResult(isError = true)`):
 - **Permission denied**: Accessibility service not enabled
-- **Action failed**: Clipboard access failed
+- **Action failed**: Clipboard access failed (including a failed read through Shizuku)
+- **Action failed**: `The clipboard could not be read: Android only lets the focused app or the default keyboard read the clipboard, and this app is in the background (an empty clipboard looks the same). Enable Shizuku and elevated commands in the app's Shell settings to read the clipboard in the background.`
 
 ---
 
@@ -2677,7 +2680,7 @@ Lists installed applications. Can filter by type (all, user-installed, system) a
 
 ### `android_close_app`
 
-Kills a background application process.
+Closes an application. When Shizuku is ready and **Settings → Shell → Allow elevated commands** is on, the app is force-stopped with `am force-stop <package_id>` run as the adb shell user, which stops all its processes, foreground ones included. Otherwise the tool calls `ActivityManager.killBackgroundProcesses`, which only kills cached background processes and cannot report whether anything was killed. The result text says which method was used.
 
 **Input Schema**:
 | Parameter | Type | Required | Default | Description |
@@ -2708,20 +2711,22 @@ Kills a background application process.
     "content": [
       {
         "type": "text",
-        "text": "App closed successfully: com.example.app"
+        "text": "Application 'com.example.app' was force-stopped: all its processes were stopped."
       }
     ]
   }
 }
 ```
 
-**Important Limitations**:
+Without Shizuku the text is: `Requested Android to kill the cached background processes of 'com.example.app'. This cannot be verified, and processes that are in the foreground or running a foreground service keep running. Enable Shizuku and elevated commands in the app's Shell settings to force-stop the app fully.`
+
+**Important Limitations** (without Shizuku):
 - This only works for apps that are currently in the **background**. For foreground apps, use `android_press_home` first to send the app to the background, wait briefly (e.g., using `android_wait_for_idle`), then call `android_close_app`.
 - System processes may restart automatically after being killed.
 
 **Error Cases** (returned as `CallToolResult(isError = true)`):
-- **Invalid params**: Missing or empty `package_id`
-- **Action failed**: App not installed, failed to kill process
+- **Invalid params**: Missing or empty `package_id`, or `package_id` is not a valid package name
+- **Action failed**: `am force-stop` failed through Shizuku
 
 ---
 

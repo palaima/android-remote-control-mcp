@@ -2,7 +2,9 @@ package com.danielealbano.androidremotecontrolmcp.integration
 
 import com.danielealbano.androidremotecontrolmcp.data.model.AppFilter
 import com.danielealbano.androidremotecontrolmcp.data.model.AppInfo
+import com.danielealbano.androidremotecontrolmcp.services.apps.AppCloseMethod
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -211,10 +213,10 @@ class AppManagementToolsIntegrationTest {
         }
 
     @Test
-    fun `close_app sends kill signal successfully`() =
+    fun `close_app reports a force-stop`() =
         runTest {
             val deps = McpIntegrationTestHelper.createMockDependencies()
-            coEvery { deps.appManager.closeApp("com.test.app") } returns Result.success(Unit)
+            coEvery { deps.appManager.closeApp("com.test.app") } returns Result.success(AppCloseMethod.FORCE_STOPPED)
 
             McpIntegrationTestHelper.withTestApplication(deps) { client, _ ->
                 val result =
@@ -224,7 +226,66 @@ class AppManagementToolsIntegrationTest {
                     )
                 assertNotEquals(true, result.isError)
                 val text = (result.content[0] as TextContent).text
-                assertTrue(text.contains("Kill signal sent"))
+                assertTrue(text.contains("was force-stopped"))
+            }
+        }
+
+    @Test
+    fun `close_app reports an unverified background kill without Shizuku`() =
+        runTest {
+            val deps = McpIntegrationTestHelper.createMockDependencies()
+            coEvery {
+                deps.appManager.closeApp("com.test.app")
+            } returns Result.success(AppCloseMethod.BACKGROUND_KILL_REQUESTED)
+
+            McpIntegrationTestHelper.withTestApplication(deps) { client, _ ->
+                val result =
+                    client.callTool(
+                        name = "android_close_app",
+                        arguments = mapOf("package_id" to "com.test.app"),
+                    )
+                assertNotEquals(true, result.isError)
+                val text = (result.content[0] as TextContent).text
+                assertTrue(text.contains("cannot be verified"))
+                assertTrue(text.contains("Shizuku"))
+            }
+        }
+
+    @Test
+    fun `close_app reports a failed force-stop as an error`() =
+        runTest {
+            val deps = McpIntegrationTestHelper.createMockDependencies()
+            coEvery {
+                deps.appManager.closeApp("com.test.app")
+            } returns Result.failure(IllegalStateException("'am force-stop' failed for com.test.app"))
+
+            McpIntegrationTestHelper.withTestApplication(deps) { client, _ ->
+                val result =
+                    client.callTool(
+                        name = "android_close_app",
+                        arguments = mapOf("package_id" to "com.test.app"),
+                    )
+                assertEquals(true, result.isError)
+                val text = (result.content[0] as TextContent).text
+                assertTrue(text.contains("am force-stop"))
+            }
+        }
+
+    @Test
+    fun `close_app rejects an invalid package name`() =
+        runTest {
+            val deps = McpIntegrationTestHelper.createMockDependencies()
+
+            McpIntegrationTestHelper.withTestApplication(deps) { client, _ ->
+                val result =
+                    client.callTool(
+                        name = "android_close_app",
+                        arguments = mapOf("package_id" to "com.test.app; reboot"),
+                    )
+                assertEquals(true, result.isError)
+                val text = (result.content[0] as TextContent).text
+                assertTrue(text.contains("not a valid package name"))
+                coVerify(exactly = 0) { deps.appManager.closeApp(any()) }
             }
         }
 

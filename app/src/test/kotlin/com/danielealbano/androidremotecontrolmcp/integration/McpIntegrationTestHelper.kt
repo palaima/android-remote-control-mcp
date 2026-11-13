@@ -87,6 +87,7 @@ import com.danielealbano.androidremotecontrolmcp.services.screencapture.Screensh
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotRedactor
 import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import com.danielealbano.androidremotecontrolmcp.services.sharing.SharedContentInbox
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardRead
 import com.danielealbano.androidremotecontrolmcp.services.storage.FileOperationProvider
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.testutil.RecordingServerLogRepository
@@ -358,6 +359,7 @@ object McpIntegrationTestHelper {
             deps.nodeCache,
             deps.privacyToolGate,
             deps.placeholderSubstitutor,
+            mockk { coEvery { readText() } returns ShizukuClipboardRead.Unavailable },
             toolNamePrefix,
             perms,
         )

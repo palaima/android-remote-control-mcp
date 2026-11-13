@@ -29,15 +29,30 @@ interface AppManager {
     suspend fun openApp(packageId: String): Result<Unit>
 
     /**
-     * Kills a background application process.
+     * Closes an application.
      *
-     * Uses [android.app.ActivityManager.killBackgroundProcesses].
-     * This only works for apps that are currently in the background.
-     * For foreground apps, use the `press_home` MCP tool first to send
-     * the app to the background, then call this method.
+     * When Shizuku is ready and elevated commands are enabled, the app is force-stopped with `am force-stop` run
+     * as the shell user, which stops all its processes, foreground ones included. Otherwise it falls back to
+     * [android.app.ActivityManager.killBackgroundProcesses], which only kills cached background processes and
+     * cannot report whether anything was killed.
      *
-     * @param packageId The application package name.
-     * @return [Result.success] always (killBackgroundProcesses is fire-and-forget).
+     * @param packageId The application package name; it must be a valid package name.
+     * @return [Result.success] with the [AppCloseMethod] used, or [Result.failure] when [packageId] is not a valid
+     *         package name or `am force-stop` failed.
      */
-    suspend fun closeApp(packageId: String): Result<Unit>
+    suspend fun closeApp(packageId: String): Result<AppCloseMethod>
 }
+
+/** How [AppManager.closeApp] closed an app. */
+enum class AppCloseMethod {
+    /** All processes of the app were stopped with `am force-stop`. */
+    FORCE_STOPPED,
+
+    /** Only a request to kill cached background processes was made; the result cannot be verified. */
+    BACKGROUND_KILL_REQUESTED,
+}
+
+private val PACKAGE_NAME_REGEX = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+
+/** Whether [packageId] is a valid Android package name: two or more dot-separated Java-style segments. */
+fun isValidPackageName(packageId: String): Boolean = PACKAGE_NAME_REGEX.matches(packageId)

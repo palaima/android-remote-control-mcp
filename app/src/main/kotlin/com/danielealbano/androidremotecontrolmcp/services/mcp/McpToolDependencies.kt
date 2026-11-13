@@ -27,6 +27,7 @@ import com.danielealbano.androidremotecontrolmcp.services.sharing.SharedContentI
 import com.danielealbano.androidremotecontrolmcp.services.shell.ShellCommandAuthorizer
 import com.danielealbano.androidremotecontrolmcp.services.shell.ShellProcessManager
 import com.danielealbano.androidremotecontrolmcp.services.shell.ShellScratchDirectory
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardReader
 import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuInputInjector
 import com.danielealbano.androidremotecontrolmcp.services.storage.FileOperationProvider
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
@@ -43,6 +44,7 @@ class AccessibilityToolDeps
         val nodeCache: AccessibilityNodeCache,
         val typeInputController: TypeInputController,
         val shizukuInputInjector: ShizukuInputInjector,
+        val shizukuClipboardReader: ShizukuClipboardReader,
     )
 
 /** What the screen introspection tools capture and format with. */

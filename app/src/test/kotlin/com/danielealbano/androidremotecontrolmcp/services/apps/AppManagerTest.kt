@@ -10,7 +10,10 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.pm.PackageInfoCompat
 import com.danielealbano.androidremotecontrolmcp.data.model.AppFilter
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuCommandRunner
 import io.mockk.Runs
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -22,6 +25,7 @@ import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -41,6 +45,8 @@ class AppManagerTest {
     @MockK
     private lateinit var mockActivityManager: ActivityManager
 
+    private val mockShizukuCommandRunner = mockk<ShizukuCommandRunner>()
+
     private lateinit var appManager: AppManagerImpl
 
     @BeforeEach
@@ -58,7 +64,9 @@ class AppManagerTest {
         every { mockContext.packageManager } returns mockPackageManager
         every { mockContext.getSystemService(any<String>()) } returns mockActivityManager
 
-        appManager = AppManagerImpl(mockContext)
+        coEvery { mockShizukuCommandRunner.isAvailable() } returns false
+
+        appManager = AppManagerImpl(mockContext, mockShizukuCommandRunner)
     }
 
     @AfterEach
@@ -307,7 +315,7 @@ class AppManagerTest {
     @DisplayName("closeApp")
     inner class CloseApp {
         @Test
-        fun `closeApp calls killBackgroundProcesses`() =
+        fun `closeApp falls back to killBackgroundProcesses without Shizuku`() =
             runTest {
                 // Arrange
                 every { mockActivityManager.killBackgroundProcesses(any()) } just Runs
@@ -316,8 +324,73 @@ class AppManagerTest {
                 val result = appManager.closeApp("com.test.app")
 
                 // Assert
-                assertTrue(result.isSuccess)
+                assertEquals(AppCloseMethod.BACKGROUND_KILL_REQUESTED, result.getOrNull())
                 verify { mockActivityManager.killBackgroundProcesses("com.test.app") }
+                coVerify(exactly = 0) { mockShizukuCommandRunner.run(any(), any()) }
             }
+
+        @Test
+        fun `closeApp force-stops through Shizuku when it is available`() =
+            runTest {
+                coEvery { mockShizukuCommandRunner.isAvailable() } returns true
+                coEvery { mockShizukuCommandRunner.run("am force-stop com.test.app", any()) } returns true
+
+                val result = appManager.closeApp("com.test.app")
+
+                assertEquals(AppCloseMethod.FORCE_STOPPED, result.getOrNull())
+                verify(exactly = 0) { mockActivityManager.killBackgroundProcesses(any()) }
+            }
+
+        @Test
+        fun `closeApp fails when am force-stop fails`() =
+            runTest {
+                coEvery { mockShizukuCommandRunner.isAvailable() } returns true
+                coEvery { mockShizukuCommandRunner.run(any(), any()) } returns false
+
+                val result = appManager.closeApp("com.test.app")
+
+                assertTrue(result.exceptionOrNull() is IllegalStateException)
+            }
+
+        @Test
+        fun `closeApp rejects an invalid package name without running a command`() =
+            runTest {
+                coEvery { mockShizukuCommandRunner.isAvailable() } returns true
+
+                val result = appManager.closeApp("com.test.app; reboot")
+
+                assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+                coVerify(exactly = 0) { mockShizukuCommandRunner.run(any(), any()) }
+                verify(exactly = 0) { mockActivityManager.killBackgroundProcesses(any()) }
+            }
+    }
+
+    @Nested
+    @DisplayName("isValidPackageName")
+    inner class IsValidPackageName {
+        @Test
+        fun `accepts valid package names`() {
+            listOf("com.test.app", "dev.test.nosettext", "a.b", "Com.Example_1.App2").forEach {
+                assertTrue(isValidPackageName(it), it)
+            }
+        }
+
+        @Test
+        fun `rejects invalid package names`() {
+            listOf(
+                "",
+                "app",
+                ".com.app",
+                "com.app.",
+                "com..app",
+                "1com.app",
+                "com.1app",
+                "com.app; reboot",
+                "com.app && id",
+                "com.app\nid",
+                "com.app\$x",
+                "-p com.app",
+            ).forEach { assertFalse(isValidPackageName(it), it) }
+        }
     }
 }

@@ -139,6 +139,7 @@ class McpToolRegistration
                 a.nodeCache,
                 privacy.privacyToolGate,
                 privacy.placeholderSubstitutor,
+                a.shizukuClipboardReader,
                 toolNamePrefix,
                 perms,
             )

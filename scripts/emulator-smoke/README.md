@@ -125,31 +125,28 @@ Totals from the last run of the version in this directory:
 
 | API | PASS | FAIL | SKIP |
 |---|---|---|---|
-| 30 | 56 | 3 | 0 |
-| 32 | 56 | 2 | 1 |
-| 34 | 57 | 2 | 0 |
+| 30 | 57 | 2 | 0 |
+| 32 | 58 | 0 | 1 |
+| 34 | 59 | 0 | 0 |
 
 All other tools pass on all three levels.
 
 | tool | API 30 | API 32 | API 34 | cause |
 |---|---|---|---|---|
-| `android_get_clipboard` | FAIL | FAIL | FAIL | App bug, see below. |
-| `android_close_app` | PASS | FAIL | FAIL | App bug, see below. |
 | `android_take_camera_photo` | FAIL | PASS | PASS | Emulator fault on API 30, see below. |
 | `android_save_camera_video` | FAIL | PASS | PASS | Emulator fault on API 30, see below. |
 | `android_get_location` | PASS | SKIP | PASS | The API 32 image has no Google Play services. |
 
-### Known app bugs
+### Fixed app bugs
 
-Both bugs also occur in the upstream build at commit `f0ed8f87` on API 34, so the Android 11 port did not introduce them.
+Two bugs found by this harness are fixed. Both also occurred in the upstream build at commit `f0ed8f87`. Both fixes need Shizuku and "Allow elevated commands", which `setup_device.sh` turns on.
 
-1. `android_get_clipboard` returns `{"text":null}` while the app is in the background.
-   Logcat shows `ClipboardService: Denying clipboard access to com.danielealbano.androidremotecontrolmcp.gms.debug, application is not in focus nor is it a system service for user 0`.
-   The clipboard itself is set: `android_set_clipboard` passes, and pasting with `adb shell input keyevent 279` shows the text.
-2. `android_close_app` reports success on API 32 and 34, but the process keeps running.
-   The tool returns `Kill signal sent for application 'dev.test.nosettext'. Note: this only affects background processes.`
-   Three seconds later, `adb shell pidof dev.test.nosettext` still prints a PID.
-   On API 30 the process is gone.
+1. `android_get_clipboard` returned `{"text":null}` while the app was in the background, because Android lets only the focused app and the default keyboard read the clipboard.
+   With Shizuku, the tool now reads the clipboard as the shell user, which may read it in the background.
+   Without Shizuku, the tool returns an error instead of `null` when it gets no clip while the app is in the background.
+2. `android_close_app` reported success on API 32 and 34, but the process kept running, because `killBackgroundProcesses` only stops cached background processes.
+   With Shizuku, the tool now runs `am force-stop` as the shell user.
+   Without Shizuku, it still asks Android to kill the cached background processes and says that it cannot verify the result.
 
 ### API 30 back camera (emulator fault)
 

@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
+import com.danielealbano.androidremotecontrolmcp.privacy.PrivacyToolGate
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityNodeCache
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityNodeData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityServiceProvider
@@ -19,7 +20,10 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementF
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementInfo
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.FindBy
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardRead
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardReader
 import com.danielealbano.androidremotecontrolmcp.testutil.PrivacyToolTestDoubles
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -32,6 +36,7 @@ import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
@@ -136,7 +141,24 @@ class UtilityToolsTest {
     @Nested
     @DisplayName("GetClipboardTool")
     inner class GetClipboardToolTests {
-        private val tool = GetClipboardTool(mockAccessibilityServiceProvider, PrivacyToolTestDoubles.passthroughGate())
+        private val mockShizukuClipboardReader = mockk<ShizukuClipboardReader>()
+        private val tool =
+            GetClipboardTool(
+                mockAccessibilityServiceProvider,
+                PrivacyToolTestDoubles.passthroughGate(),
+                mockShizukuClipboardReader,
+            )
+
+        private fun parsedText(result: CallToolResult) =
+            Json
+                .parseToJsonElement(stripUntrustedWarning(extractTextContent(result)))
+                .jsonObject["text"]
+
+        @BeforeEach
+        fun setUpClipboard() {
+            every { mockContext.packageName } returns "com.example"
+            coEvery { mockShizukuClipboardReader.readText() } returns ShizukuClipboardRead.Unavailable
+        }
 
         @Test
         fun `returns clipboard text`() =
@@ -148,24 +170,66 @@ class UtilityToolsTest {
                 every { mockClip.getItemAt(0) } returns mockItem
                 every { mockItem.text } returns "copied text"
 
-                val result = tool.execute(null)
-                val text = extractTextContent(result)
-                val parsed = Json.parseToJsonElement(stripUntrustedWarning(text)).jsonObject
-                assertEquals("copied text", parsed["text"]?.jsonPrimitive?.content)
+                assertEquals("copied text", parsedText(tool.execute(null))?.jsonPrimitive?.content)
             }
 
         @Test
-        fun `returns null when clipboard empty`() =
+        fun `returns null when clipboard empty and the app is focused`() =
             runTest {
                 every { mockClipboardManager.primaryClip } returns null
 
-                val result = tool.execute(null)
-                val text = extractTextContent(result)
-                val parsed = Json.parseToJsonElement(stripUntrustedWarning(text)).jsonObject
-                assertTrue(
-                    parsed["text"]?.jsonPrimitive?.content == null ||
-                        parsed["text"]?.jsonPrimitive?.content == "null",
-                )
+                assertEquals(JsonNull, parsedText(tool.execute(null)))
+            }
+
+        @Test
+        fun `throws a background read error when no clip is returned and the app is not focused`() =
+            runTest {
+                every { mockClipboardManager.primaryClip } returns null
+                every { mockAccessibilityServiceProvider.getCurrentPackageName() } returns "com.other.app"
+
+                val error = assertThrows<McpToolException.ActionFailed> { tool.execute(null) }
+
+                assertEquals(GetClipboardTool.BACKGROUND_READ_DENIED, error.message)
+            }
+
+        @Test
+        fun `returns the text read through Shizuku without the clipboard manager`() =
+            runTest {
+                coEvery { mockShizukuClipboardReader.readText() } returns ShizukuClipboardRead.Read("shell text")
+                every { mockAccessibilityServiceProvider.getCurrentPackageName() } returns "com.other.app"
+
+                assertEquals("shell text", parsedText(tool.execute(null))?.jsonPrimitive?.content)
+                verify(exactly = 0) { mockClipboardManager.primaryClip }
+            }
+
+        @Test
+        fun `returns null when Shizuku reads an empty clipboard in the background`() =
+            runTest {
+                coEvery { mockShizukuClipboardReader.readText() } returns ShizukuClipboardRead.Read(null)
+                every { mockAccessibilityServiceProvider.getCurrentPackageName() } returns "com.other.app"
+
+                assertEquals(JsonNull, parsedText(tool.execute(null)))
+            }
+
+        @Test
+        fun `reports a Shizuku read failure as an action failure`() =
+            runTest {
+                coEvery { mockShizukuClipboardReader.readText() } throws IllegalStateException("service failed")
+
+                val error = assertThrows<McpToolException.ActionFailed> { tool.execute(null) }
+
+                assertTrue(error.message!!.contains("service failed"))
+            }
+
+        @Test
+        fun `passes Shizuku text through the privacy gate`() =
+            runTest {
+                coEvery { mockShizukuClipboardReader.readText() } returns ShizukuClipboardRead.Read("secret")
+                val gate = mockk<PrivacyToolGate>()
+                coEvery { gate.text("secret", "clipboard") } returns "[redacted]"
+                val gatedTool = GetClipboardTool(mockAccessibilityServiceProvider, gate, mockShizukuClipboardReader)
+
+                assertEquals("[redacted]", parsedText(gatedTool.execute(null))?.jsonPrimitive?.content)
             }
     }
 

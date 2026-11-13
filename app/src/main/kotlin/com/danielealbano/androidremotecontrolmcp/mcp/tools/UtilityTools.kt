@@ -2,6 +2,7 @@ package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
@@ -16,6 +17,8 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.Accessib
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementFinder
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.FindBy
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.NodeActionLabels
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardRead
+import com.danielealbano.androidremotecontrolmcp.services.shell.ShizukuClipboardReader
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
@@ -35,14 +38,17 @@ import javax.inject.Inject
 /**
  * MCP tool: get_clipboard
  *
- * Gets the current clipboard text content. Accessibility services are exempt
- * from Android 10+ clipboard access restrictions.
+ * Gets the current clipboard text content. Android lets only the focused app and the default input method read the
+ * clipboard, so when Shizuku is available the clipboard is read as the shell user, which may read it in the
+ * background. Without Shizuku, a read that returns no clip while this app is not focused is reported as an error,
+ * because a denied read and an empty clipboard cannot be told apart.
  */
 class GetClipboardTool
     @Inject
     constructor(
         private val accessibilityServiceProvider: AccessibilityServiceProvider,
         private val privacyToolGate: PrivacyToolGate,
+        private val shizukuClipboardReader: ShizukuClipboardReader,
     ) {
         @Suppress("ThrowsCount", "UnusedParameter")
         suspend fun execute(arguments: JsonObject?): CallToolResult {
@@ -53,18 +59,10 @@ class GetClipboardTool
                     )
 
             return try {
-                val clipboardManager =
-                    context.getSystemService(ClipboardManager::class.java)
-                        ?: throw McpToolException.ActionFailed(
-                            "ClipboardManager not available",
-                        )
-
-                val clip = clipboardManager.primaryClip
                 val text =
-                    if (clip != null && clip.itemCount > 0) {
-                        clip.getItemAt(0).text?.toString()
-                    } else {
-                        null
+                    when (val read = shizukuClipboardReader.readText()) {
+                        is ShizukuClipboardRead.Read -> read.text
+                        ShizukuClipboardRead.Unavailable -> readWithClipboardManager(context)
                     }
 
                 Log.d(TAG, "get_clipboard: text=${if (text != null) "${text.length} chars" else "null"}")
@@ -87,6 +85,24 @@ class GetClipboardTool
             }
         }
 
+        private fun readWithClipboardManager(context: Context): String? {
+            val clipboardManager =
+                context.getSystemService(ClipboardManager::class.java)
+                    ?: throw McpToolException.ActionFailed(
+                        "ClipboardManager not available",
+                    )
+
+            val clip = clipboardManager.primaryClip
+            if (clip == null && accessibilityServiceProvider.getCurrentPackageName() != context.packageName) {
+                throw McpToolException.ActionFailed(BACKGROUND_READ_DENIED)
+            }
+            return clip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.text
+                ?.toString()
+        }
+
         fun register(
             registrar: LoggedToolRegistrar,
             toolNamePrefix: String,
@@ -94,7 +110,13 @@ class GetClipboardTool
             registrar.addTool(
                 toolName = TOOL_NAME,
                 name = "$toolNamePrefix$TOOL_NAME",
-                description = "Get the current clipboard text content",
+                description =
+                    "Get the current clipboard text content. Android lets only the focused app and the default " +
+                        "keyboard read the clipboard. With Shizuku ready and elevated commands enabled, the " +
+                        "clipboard is read as the shell user and works while this app is in the background; " +
+                        "text is null when the clipboard is empty. Without Shizuku, an empty clipboard and a " +
+                        "denied read look the same, so when no clip is returned while this app is not focused " +
+                        "the tool returns an error instead of null.",
                 inputSchema =
                     ToolSchema(
                         properties = buildJsonObject {},
@@ -106,6 +128,11 @@ class GetClipboardTool
         companion object {
             private const val TAG = "MCP:GetClipboardTool"
             const val TOOL_NAME = "get_clipboard"
+            internal const val BACKGROUND_READ_DENIED =
+                "The clipboard could not be read: Android only lets the focused app or the default keyboard read " +
+                    "the clipboard, and this app is in the background (an empty clipboard looks the same). Enable " +
+                    "Shizuku and elevated commands in the app's Shell settings to read the clipboard in the " +
+                    "background."
         }
     }
 
@@ -806,11 +833,13 @@ fun registerUtilityTools(
     nodeCache: AccessibilityNodeCache,
     privacyToolGate: PrivacyToolGate,
     substitutor: PlaceholderSubstitutor,
+    shizukuClipboardReader: ShizukuClipboardReader,
     toolNamePrefix: String,
     perms: ToolPermissionsConfig,
 ) {
     if (perms.isToolEnabled(GetClipboardTool.TOOL_NAME)) {
-        GetClipboardTool(accessibilityServiceProvider, privacyToolGate).register(registrar, toolNamePrefix)
+        GetClipboardTool(accessibilityServiceProvider, privacyToolGate, shizukuClipboardReader)
+            .register(registrar, toolNamePrefix)
     }
     if (perms.isToolEnabled(SetClipboardTool.TOOL_NAME)) {
         SetClipboardTool(accessibilityServiceProvider, substitutor).register(registrar, toolNamePrefix)
