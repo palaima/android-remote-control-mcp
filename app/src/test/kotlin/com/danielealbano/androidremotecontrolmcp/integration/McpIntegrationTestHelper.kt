@@ -123,7 +123,7 @@ object McpIntegrationTestHelper {
 
     /**
      * Puts input focus on the node [nodeId] as the type tools see it: the FOCUS_INPUT search from [rootNode] (returned
-     * by [setupMultiWindowMock], whose Unit functions such as recycle() are no-ops) finds an editable node, and it is
+     * by [setupMultiWindowMock]) finds an editable node, and it is
      * the node of [nodeId] in the tree reads ([MockDependencies.readNodes]).
      *
      * @return The focused node mock.
@@ -162,7 +162,7 @@ object McpIntegrationTestHelper {
         activityName: String = ".MainActivity",
         windowId: Int = 0,
     ): AccessibilityNodeInfo {
-        // Unit functions (recycle) are no-ops; every value-returning call is still stubbed explicitly below.
+        // Unit functions are no-ops; every value-returning call is still stubbed explicitly below.
         val mockRootNode = mockk<AccessibilityNodeInfo>(relaxUnitFun = true)
         val mockWindowInfo = mockk<AccessibilityWindowInfo>(relaxed = true)
 

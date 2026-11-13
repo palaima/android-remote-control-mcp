@@ -372,18 +372,14 @@ class ScreenIntrospectionToolsTest {
             }
 
         @Test
-        @DisplayName("populates cache and recycles window info but not root node after parsing")
-        fun populatesCacheAndRecyclesWindowInfoButNotRootNodeAfterParsing() =
+        @DisplayName("populates cache after parsing")
+        fun populatesCacheAfterParsing() =
             runTest {
                 setupReadyService()
 
                 handler.execute(null)
 
-                @Suppress("DEPRECATION")
-                verify(exactly = 0) { mockRootNode.recycle() }
                 verify(exactly = 1) { mockNodeCache.populate(any()) }
-                @Suppress("DEPRECATION")
-                verify(exactly = 1) { mockWindowInfo.recycle() }
             }
 
         @Test
@@ -414,8 +410,6 @@ class ScreenIntrospectionToolsTest {
                 val textContent = result.content[0] as TextContent
                 assertEquals(degradedOutput, stripUntrustedWarning(textContent.text))
 
-                @Suppress("DEPRECATION")
-                verify(exactly = 0) { fallbackRootNode.recycle() }
                 verify(exactly = 1) { mockNodeCache.populate(any()) }
             }
 
@@ -435,9 +429,6 @@ class ScreenIntrospectionToolsTest {
                         handler.execute(null)
                     }
                 assertTrue(exception.message!!.contains("All windows returned null root nodes"))
-
-                @Suppress("DEPRECATION")
-                verify(exactly = 1) { mockNullRootWindow.recycle() }
             }
 
         @Test

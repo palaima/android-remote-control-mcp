@@ -104,9 +104,6 @@ class TreeFingerprint {
      * fingerprint comparison (e.g., idle detection) because it skips node ID
      * generation, property extraction for unused fields, and cache population.
      *
-     * Child nodes obtained via [AccessibilityNodeInfo.getChild] are not recycled
-     * (safe on API 33+ where recycle() is a no-op).
-     *
      * @param rootNodes the root [AccessibilityNodeInfo] for each on-screen window
      * @return an [IntArray] of size [FINGERPRINT_SIZE] representing the combined fingerprint
      */

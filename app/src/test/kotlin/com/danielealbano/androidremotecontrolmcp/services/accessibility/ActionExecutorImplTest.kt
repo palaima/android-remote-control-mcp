@@ -331,24 +331,6 @@ class ActionExecutorImplTest {
                 // Assert
                 assertTrue(result.isFailure)
             }
-
-        @Test
-        @DisplayName("recycles the queried window objects")
-        @Suppress("DEPRECATION")
-        fun recyclesQueriedWindows() =
-            runTest {
-                // Arrange
-                setServiceInstance(mockService)
-                val window = imeWindow()
-                every { mockService.getAccessibilityWindows() } returns listOf(window)
-                every { mockService.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) } returns true
-
-                // Act
-                executor.dismissKeyboard()
-
-                // Assert
-                verify { window.recycle() }
-            }
     }
 
     @Nested
@@ -975,29 +957,6 @@ class ActionExecutorImplTest {
                 // Assert
                 assertTrue(result.isFailure)
                 verify { mockService.getAccessibilityWindows() }
-            }
-
-        @Test
-        @DisplayName("cached node is not recycled after use")
-        fun cachedNodeNotRecycledAfterUse() =
-            runTest {
-                // Arrange
-                setServiceInstance(mockService)
-                val mockNode = mockk<AccessibilityNodeInfo>(relaxed = true)
-                val cachedNode = CachedNode(mockNode, depth = 1, index = 0, parentId = "root")
-                mockCacheHitWithIdentity(cachedNode, "node_target")
-                every { cachedNode.node.isClickable } returns true
-                every { cachedNode.node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
-
-                // Act
-                val result = executor.clickNode("node_target", emptyList())
-
-                // Assert
-                assertTrue(result.isSuccess)
-                verify(exactly = 0) {
-                    @Suppress("DEPRECATION")
-                    cachedNode.node.recycle()
-                }
             }
 
         @Test

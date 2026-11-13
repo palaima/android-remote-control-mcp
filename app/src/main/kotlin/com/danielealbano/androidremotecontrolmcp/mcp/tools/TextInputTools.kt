@@ -467,10 +467,7 @@ private fun focusedCandidate(
     // node held focus
     candidates.filter { it.field }.forEach { it.node.refresh() }
     val focusedNode = findFocusedEditableNode(accessibilityServiceProvider) ?: return null
-    val match = candidates.firstOrNull { it.node == focusedNode }?.id
-    @Suppress("DEPRECATION")
-    focusedNode.recycle()
-    return match
+    return candidates.firstOrNull { it.node == focusedNode }?.id
 }
 
 /** [target] followed by its descendants, depth first. */
@@ -1359,17 +1356,12 @@ class PressKeyTool
                         "No focused node found for ENTER key",
                     )
 
-            try {
-                val success =
-                    focusedNode.performAction(
-                        AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id,
-                    )
-                if (!success) {
-                    throw McpToolException.ActionFailed("ENTER key action failed")
-                }
-            } finally {
-                @Suppress("DEPRECATION")
-                focusedNode.recycle()
+            val success =
+                focusedNode.performAction(
+                    AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id,
+                )
+            if (!success) {
+                throw McpToolException.ActionFailed("ENTER key action failed")
             }
         }
 
@@ -1380,27 +1372,22 @@ class PressKeyTool
                         "No focused editable node found for DEL key",
                     )
 
-            try {
-                val currentText = focusedNode.text?.toString() ?: ""
-                if (currentText.isNotEmpty()) {
-                    val newText = currentText.dropLast(1)
-                    val arguments =
-                        Bundle().apply {
-                            putCharSequence(
-                                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                                newText,
-                            )
-                        }
-                    val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-                    if (!success) {
-                        throw McpToolException.ActionFailed("DEL key action failed")
+            val currentText = focusedNode.text?.toString() ?: ""
+            if (currentText.isNotEmpty()) {
+                val newText = currentText.dropLast(1)
+                val arguments =
+                    Bundle().apply {
+                        putCharSequence(
+                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                            newText,
+                        )
                     }
+                val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+                if (!success) {
+                    throw McpToolException.ActionFailed("DEL key action failed")
                 }
-                // If text is already empty, DEL is a no-op (not an error)
-            } finally {
-                @Suppress("DEPRECATION")
-                focusedNode.recycle()
             }
+            // If text is already empty, DEL is a no-op (not an error)
         }
 
         private fun appendCharToFocused(char: Char) {
@@ -1410,22 +1397,17 @@ class PressKeyTool
                         "No focused editable node found for key input",
                     )
 
-            try {
-                val currentText = focusedNode.text?.toString() ?: ""
-                val arguments =
-                    Bundle().apply {
-                        putCharSequence(
-                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                            currentText + char,
-                        )
-                    }
-                val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-                if (!success) {
-                    throw McpToolException.ActionFailed("Key input action failed")
+            val currentText = focusedNode.text?.toString() ?: ""
+            val arguments =
+                Bundle().apply {
+                    putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                        currentText + char,
+                    )
                 }
-            } finally {
-                @Suppress("DEPRECATION")
-                focusedNode.recycle()
+            val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+            if (!success) {
+                throw McpToolException.ActionFailed("Key input action failed")
             }
         }
 
@@ -1550,7 +1532,6 @@ fun registerTextInputTools(
  * to locate the node that currently has keyboard focus.
  *
  * @return The focused [AccessibilityNodeInfo], or null if no editable node is focused.
- *         The caller is responsible for recycling the returned node.
  */
 @Suppress("MaxLineLength")
 internal fun findFocusedEditableNode(accessibilityServiceProvider: AccessibilityServiceProvider): AccessibilityNodeInfo? =
@@ -1583,39 +1564,15 @@ private fun findFocusedEditableNodeLocked(accessibilityServiceProvider: Accessib
     accessibilityServiceProvider.clearFrameworkNodeCache()
 
     // Search across all windows for the focused editable node.
-    // Uses a found-node variable to avoid returning from inside the try/finally block,
-    // ensuring all AccessibilityWindowInfo objects are properly recycled before the
-    // caller receives the result.
     val windows = accessibilityServiceProvider.getAccessibilityWindows()
     var foundNode: AccessibilityNodeInfo? = null
-    try {
-        for (window in windows) {
-            val rootNode = window.root ?: continue
-            val focusedNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+    for (window in windows) {
+        val rootNode = window.root ?: continue
+        val focusedNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
-            if (focusedNode != null && focusedNode.isEditable) {
-                // Recycle root AFTER confirming focusedNode is valid and editable.
-                // On API 34+ recycle() is a no-op, but ordering is correct for safety.
-                @Suppress("DEPRECATION")
-                rootNode.recycle()
-                foundNode = focusedNode
-                break
-            }
-
-            // Not the node we want — recycle both
-            @Suppress("DEPRECATION")
-            rootNode.recycle()
-            if (focusedNode != null) {
-                @Suppress("DEPRECATION")
-                focusedNode.recycle()
-            }
-        }
-    } finally {
-        // Recycle all AccessibilityWindowInfo objects for consistency
-        // (no-op on API 34+, but follows the codebase's recycling convention)
-        for (w in windows) {
-            @Suppress("DEPRECATION")
-            w.recycle()
+        if (focusedNode != null && focusedNode.isEditable) {
+            foundNode = focusedNode
+            break
         }
     }
 
@@ -1627,12 +1584,7 @@ private fun findFocusedEditableNodeLocked(accessibilityServiceProvider: Accessib
     if (windows.isEmpty()) {
         val rootNode = accessibilityServiceProvider.getRootNode() ?: return null
         val focusedNode = rootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        @Suppress("DEPRECATION")
-        rootNode.recycle()
-
         if (focusedNode != null && !focusedNode.isEditable) {
-            @Suppress("DEPRECATION")
-            focusedNode.recycle()
             return null
         }
         return focusedNode

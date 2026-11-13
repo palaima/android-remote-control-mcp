@@ -11,14 +11,12 @@ import javax.inject.Inject
  * Parses an [AccessibilityNodeInfo] tree into a serializable [AccessibilityNodeData] hierarchy.
  *
  * When a [nodeMap] parameter is provided to [parseTree], real [AccessibilityNodeInfo] references
- * are stored in it as [CachedNode] entries. Child nodes are NOT recycled during parsing in this
- * mode — the caller (e.g., `getFreshWindows`) accumulates references across multiple [parseTree]
- * calls and populates the [AccessibilityNodeCache] once with all windows' nodes.
+ * are stored in it as [CachedNode] entries. The caller (e.g., `getFreshWindows`) accumulates
+ * references across multiple [parseTree] calls and populates the [AccessibilityNodeCache] once
+ * with all windows' nodes. When [nodeMap] is provided, the root IS stored in the map.
  *
- * When [nodeMap] is null, child nodes are recycled after data extraction (original behavior).
- *
- * The root node passed to [parseTree] is NOT recycled by the parser — the caller retains
- * ownership. When [nodeMap] is provided, the root IS stored in the map.
+ * Accessibility nodes are never recycled: the node cache keeps them, and below API 33
+ * `recycle()` returns them to a shared pool, which would corrupt cached nodes. GC frees them.
  *
  * This class is Hilt-injectable and stateless (no injected cache, no internal mutable state).
  */
@@ -28,14 +26,11 @@ class AccessibilityTreeParser
         /**
          * Parses the full accessibility tree starting from [rootNode].
          *
-         * The [rootNode] is NOT recycled by this method. The caller retains ownership.
-         *
-         * @param rootNode The root [AccessibilityNodeInfo] to start parsing from. NOT recycled by the parser.
+         * @param rootNode The root [AccessibilityNodeInfo] to start parsing from.
          * @param rootParentId Parent ID for the root node (used in nodeId generation, typically "root_w{windowId}").
          * @param nodeMap Optional output map. When non-null, real [AccessibilityNodeInfo] references are
-         *   stored as [CachedNode] entries during traversal. Child nodes are NOT recycled in this mode —
-         *   the caller accumulates references and populates [AccessibilityNodeCache] externally.
-         *   When null, child nodes are recycled after data extraction (original behavior).
+         *   stored as [CachedNode] entries during traversal. The caller accumulates references and
+         *   populates [AccessibilityNodeCache] externally.
          * @return The parsed tree as [AccessibilityNodeData].
          */
         fun parseTree(
@@ -48,7 +43,6 @@ class AccessibilityTreeParser
                 depth = 0,
                 index = 0,
                 parentId = rootParentId,
-                recycleNode = false,
                 nodeMap = nodeMap,
             )
 
@@ -59,11 +53,8 @@ class AccessibilityTreeParser
          * @param depth The depth of this node in the tree (root = 0).
          * @param index The index of this node among its siblings.
          * @param parentId The generated ID of the parent node.
-         * @param recycleNode Whether to recycle [node] after parsing. When [nodeMap] is null, child
-         *   nodes are recycled. When [nodeMap] is non-null, neither [node] nor its children are recycled.
          * @param nodeMap Optional output map for caching real node references. When non-null, the node
-         *   is stored as a [CachedNode] and child nodes are not recycled. When null, nodes are recycled
-         *   after data extraction per the original behavior.
+         *   is stored as a [CachedNode].
          * @return The parsed node as [AccessibilityNodeData].
          */
         @Suppress("LongParameterList", "LongMethod")
@@ -72,7 +63,6 @@ class AccessibilityTreeParser
             depth: Int,
             index: Int,
             parentId: String,
-            recycleNode: Boolean = true,
             nodeMap: MutableMap<String, CachedNode>? = null,
         ): AccessibilityNodeData {
             val rect = Rect()
@@ -143,11 +133,6 @@ class AccessibilityTreeParser
                     CachedNode(node, depth, index, parentId),
                 )
 
-                if (recycleNode && nodeMap == null) {
-                    @Suppress("DEPRECATION")
-                    node.recycle()
-                }
-
                 return leafNode
             }
 
@@ -173,7 +158,6 @@ class AccessibilityTreeParser
                             depth = depth + 1,
                             index = i,
                             parentId = nodeId,
-                            recycleNode = nodeMap == null,
                             nodeMap = nodeMap,
                         ),
                     )
@@ -208,13 +192,6 @@ class AccessibilityTreeParser
             // Metadata (depth, index, parentId) is needed by ActionExecutorImpl to
             // re-verify node identity after refresh() (S1 fix).
             nodeMap?.put(nodeId, CachedNode(node, depth, index, parentId))
-
-            // Defensive: nodeMap == null is redundant with recycleNode in normal flow,
-            // but guards against direct parseNode calls with recycleNode=true + non-null nodeMap.
-            if (recycleNode && nodeMap == null) {
-                @Suppress("DEPRECATION")
-                node.recycle()
-            }
 
             return nodeData
         }

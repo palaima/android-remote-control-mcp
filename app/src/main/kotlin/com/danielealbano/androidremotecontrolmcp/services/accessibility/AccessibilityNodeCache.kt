@@ -51,10 +51,7 @@ interface AccessibilityNodeCache {
      * Replaces the entire cache with a snapshot of [entries].
      *
      * A defensive copy (`toMap()`) is made so the caller cannot mutate the cached map
-     * after this call returns. The previous cache entries are NOT recycled by this method —
-     * a concurrent [get] call may still hold a reference to a node from the old map. Old
-     * entries are dropped and collected by GC ([AccessibilityNodeInfo.recycle] is a no-op
-     * on API 33+).
+     * after this call returns. Old entries are dropped and collected by GC.
      *
      * @param entries Map of nodeId to [CachedNode]. May be mutable — a read-only copy is stored.
      */
@@ -69,11 +66,9 @@ interface AccessibilityNodeCache {
     fun get(nodeId: String): CachedNode?
 
     /**
-     * Clears all cached entries and recycles them.
+     * Clears all cached entries.
      *
-     * Recycling old entries is safe even if a concurrent [get] call holds a reference to a
-     * [CachedNode] from the previous map, because [AccessibilityNodeInfo.recycle] is a no-op
-     * on API 33+ (which is this project's minSdk). Called during service shutdown
+     * Called during service shutdown
      * ([McpAccessibilityService.onDestroy]) and after a settled window transition (soft-keyboard
      * show/hide, rotation, activity/dialog change) to drop node references whose bounds may have
      * moved; an in-flight node action keeps using the reference it already resolved.

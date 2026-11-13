@@ -584,16 +584,8 @@ class ActionExecutorImpl
 
             val windows = service.getAccessibilityWindows()
             val keyboardOpen =
-                try {
-                    windows.any {
-                        it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD
-                    }
-                } finally {
-                    // Recycle all AccessibilityWindowInfo objects for consistency
-                    for (w in windows) {
-                        @Suppress("DEPRECATION")
-                        w.recycle()
-                    }
+                windows.any {
+                    it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD
                 }
 
             return when {
@@ -758,13 +750,12 @@ class ActionExecutorImpl
          * @param nodeId The node ID to find.
          * @param tree The parsed tree (used to regenerate IDs for comparison).
          * @return The matching real [AccessibilityNodeInfo], or null if not found.
-         *         The caller is responsible for recycling the returned node.
          */
         override fun findAccessibilityNodeByNodeId(
             rootNode: AccessibilityNodeInfo,
             nodeId: String,
             tree: AccessibilityNodeData,
-        ): AccessibilityNodeInfo? = walkAndMatch(rootNode, tree, nodeId, recycleOnMismatch = false)
+        ): AccessibilityNodeInfo? = walkAndMatch(rootNode, tree, nodeId)
 
         // ─────────────────────────────────────────────────────────────────────────
         // Internal Helpers
@@ -829,8 +820,6 @@ class ActionExecutorImpl
                                     "${result.exceptionOrNull()?.message}",
                             )
                         }
-                        // Do NOT recycle cached nodes — they are owned by the cache.
-                        // No try/finally needed since there is no cleanup to perform.
                         return result
                     } else {
                         Log.d(
@@ -852,50 +841,28 @@ class ActionExecutorImpl
             if (realWindows.isNotEmpty()) {
                 // Build a lookup map for O(1) window matching instead of O(n²) scanning
                 val realWindowById = realWindows.associateBy { it.id }
-                try {
-                    for (windowData in windows) {
-                        val realWindow = realWindowById[windowData.windowId] ?: continue
-                        val realRootNode = realWindow.root ?: continue
+                for (windowData in windows) {
+                    val realWindow = realWindowById[windowData.windowId] ?: continue
+                    val realRootNode = realWindow.root ?: continue
 
-                        val realNode =
-                            findAccessibilityNodeByNodeId(realRootNode, nodeId, windowData.tree)
-                        if (realNode != null) {
-                            return try {
-                                val result = action(realNode)
-                                if (result.isSuccess) {
-                                    Log.d(
-                                        TAG,
-                                        "Node action '$actionName' succeeded on node '$nodeId' " +
-                                            "in window ${windowData.windowId}",
-                                    )
-                                } else {
-                                    Log.w(
-                                        TAG,
-                                        "Node action '$actionName' failed on node '$nodeId': " +
-                                            "${result.exceptionOrNull()?.message}",
-                                    )
-                                }
-                                result
-                            } finally {
-                                // Guard against double-recycle: findAccessibilityNodeByNodeId
-                                // can return the root node itself if the target is the root
-                                if (realNode !== realRootNode) {
-                                    @Suppress("DEPRECATION")
-                                    realNode.recycle()
-                                }
-                                @Suppress("DEPRECATION")
-                                realRootNode.recycle()
-                            }
+                    val realNode =
+                        findAccessibilityNodeByNodeId(realRootNode, nodeId, windowData.tree)
+                    if (realNode != null) {
+                        val result = action(realNode)
+                        if (result.isSuccess) {
+                            Log.d(
+                                TAG,
+                                "Node action '$actionName' succeeded on node '$nodeId' " +
+                                    "in window ${windowData.windowId}",
+                            )
+                        } else {
+                            Log.w(
+                                TAG,
+                                "Node action '$actionName' failed on node '$nodeId': " +
+                                    "${result.exceptionOrNull()?.message}",
+                            )
                         }
-
-                        @Suppress("DEPRECATION")
-                        realRootNode.recycle()
-                    }
-                } finally {
-                    // Recycle all AccessibilityWindowInfo objects for consistency
-                    for (w in realWindows) {
-                        @Suppress("DEPRECATION")
-                        w.recycle()
+                        return result
                     }
                 }
 
@@ -918,35 +885,22 @@ class ActionExecutorImpl
             for (windowData in windows) {
                 val realNode = findAccessibilityNodeByNodeId(rootNode, nodeId, windowData.tree)
                 if (realNode != null) {
-                    return try {
-                        val result = action(realNode)
-                        if (result.isSuccess) {
-                            Log.d(
-                                TAG,
-                                "Node action '$actionName' succeeded (degraded) on node '$nodeId'",
-                            )
-                        } else {
-                            Log.w(
-                                TAG,
-                                "Node action '$actionName' failed (degraded) on node '$nodeId': " +
-                                    "${result.exceptionOrNull()?.message}",
-                            )
-                        }
-                        result
-                    } finally {
-                        // Guard against double-recycle: the matched node can be the root itself
-                        if (realNode !== rootNode) {
-                            @Suppress("DEPRECATION")
-                            realNode.recycle()
-                        }
-                        @Suppress("DEPRECATION")
-                        rootNode.recycle()
+                    val result = action(realNode)
+                    if (result.isSuccess) {
+                        Log.d(
+                            TAG,
+                            "Node action '$actionName' succeeded (degraded) on node '$nodeId'",
+                        )
+                    } else {
+                        Log.w(
+                            TAG,
+                            "Node action '$actionName' failed (degraded) on node '$nodeId': " +
+                                "${result.exceptionOrNull()?.message}",
+                        )
                     }
+                    return result
                 }
             }
-
-            @Suppress("DEPRECATION")
-            rootNode.recycle()
 
             return Result.failure(
                 NoSuchElementException("Node '$nodeId' not found in any window's accessibility tree"),
@@ -1049,7 +1003,6 @@ class ActionExecutorImpl
             realNode: AccessibilityNodeInfo,
             parsedNode: AccessibilityNodeData,
             targetNodeId: String,
-            recycleOnMismatch: Boolean,
         ): AccessibilityNodeInfo? {
             if (parsedNode.id == targetNodeId) {
                 return realNode
@@ -1063,21 +1016,10 @@ class ActionExecutorImpl
                 val realChild = realNode.getChild(i) ?: continue
                 val parsedChild = parsedNode.children[i]
 
-                val found = walkAndMatch(realChild, parsedChild, targetNodeId, recycleOnMismatch = true)
+                val found = walkAndMatch(realChild, parsedChild, targetNodeId)
                 if (found != null) {
-                    // Recycle the current intermediate node — it is NOT the target.
-                    // The target (found) is deeper in the subtree or is realChild itself.
-                    if (recycleOnMismatch) {
-                        @Suppress("DEPRECATION")
-                        realNode.recycle()
-                    }
                     return found
                 }
-            }
-
-            if (recycleOnMismatch) {
-                @Suppress("DEPRECATION")
-                realNode.recycle()
             }
 
             return null

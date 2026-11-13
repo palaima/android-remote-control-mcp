@@ -142,7 +142,6 @@ class TextInputToolsTest {
         every { mockWindowInfo.title } returns "Test"
         every { mockWindowInfo.layer } returns 0
         every { mockWindowInfo.isFocused } returns true
-        every { mockWindowInfo.recycle() } returns Unit
         every { mockRootNode.refresh() } returns true
         every { mockRootNode.packageName } returns "com.example"
         every {
@@ -170,10 +169,8 @@ class TextInputToolsTest {
      */
     private fun focusInputOn(nodeId: String) {
         every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
-        every { mockRootNode.recycle() } returns Unit
         every { mockFocusedNode.isEditable } returns true
         every { mockFocusedNode.refresh() } returns true
-        every { mockFocusedNode.recycle() } returns Unit
         readNodes[nodeId] = CachedNode(mockFocusedNode, 1, 0, "node_root")
     }
 
@@ -853,7 +850,6 @@ class TextInputToolsTest {
         private fun focusOnAnotherField() {
             every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns otherFocusedNode
             every { otherFocusedNode.isEditable } returns true
-            every { otherFocusedNode.recycle() } returns Unit
             // A focus request is accepted but does not move input focus, unless a test says otherwise.
             coEvery { mockActionExecutor.focusNode(any(), any()) } returns Result.success(Unit)
         }
@@ -982,7 +978,6 @@ class TextInputToolsTest {
                 // Like Compose: until the focused field's node is built again, the search returns the host view's node
                 val hostNode = mockk<AccessibilityNodeInfo>()
                 every { hostNode.isEditable } returns false
-                every { hostNode.recycle() } returns Unit
                 var builtAgain = false
                 every { mockFocusedNode.refresh() } answers {
                     builtAgain = true
@@ -2198,13 +2193,10 @@ class TextInputToolsTest {
         fun `presses DEL key removes last character`() =
             runTest {
                 every { mockAccessibilityServiceProvider.getRootNode() } returns mockRootNode
-                @Suppress("DEPRECATION")
-                every { mockRootNode.recycle() } returns Unit
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
-                every { mockFocusedNode.recycle() } returns Unit
                 val params = buildJsonObject { put("key", "DEL") }
 
                 val result = tool.execute(params)
@@ -2218,13 +2210,10 @@ class TextInputToolsTest {
                 // press_key DEL/TAB/SPACE read the focused node's text to build ACTION_SET_TEXT; on a
                 // JS-mutated WebView input that text would be stale without clearing the framework
                 // cache first, corrupting the field. The clear MUST precede the tree read.
-                @Suppress("DEPRECATION")
-                every { mockRootNode.recycle() } returns Unit
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
-                every { mockFocusedNode.recycle() } returns Unit
                 val params = buildJsonObject { put("key", "DEL") }
 
                 tool.execute(params)
@@ -2239,13 +2228,10 @@ class TextInputToolsTest {
         fun `presses SPACE key appends space`() =
             runTest {
                 every { mockAccessibilityServiceProvider.getRootNode() } returns mockRootNode
-                @Suppress("DEPRECATION")
-                every { mockRootNode.recycle() } returns Unit
                 every { mockRootNode.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } returns mockFocusedNode
                 every { mockFocusedNode.isEditable } returns true
                 every { mockFocusedNode.text } returns "Hello"
                 every { mockFocusedNode.performAction(any(), any<Bundle>()) } returns true
-                every { mockFocusedNode.recycle() } returns Unit
                 val params = buildJsonObject { put("key", "SPACE") }
 
                 val result = tool.execute(params)

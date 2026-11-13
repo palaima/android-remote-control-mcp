@@ -79,9 +79,6 @@ class AccessibilityTreeParserTest {
             every { node.getChild(i) } returns children[i]
         }
 
-        @Suppress("DEPRECATION")
-        every { node.recycle() } just runs
-
         return node
     }
 
@@ -231,39 +228,6 @@ class AccessibilityTreeParserTest {
         }
 
         @Test
-        @DisplayName("does not recycle root node")
-        fun doesNotRecycleRootNode() {
-            // Arrange
-            val node = createMockNode()
-
-            // Act
-            parser.parseTree(node)
-
-            // Assert
-            @Suppress("DEPRECATION")
-            verify(exactly = 0) { node.recycle() }
-        }
-
-        @Test
-        @DisplayName("recycles child nodes after parsing")
-        fun recyclesChildNodesAfterParsing() {
-            // Arrange
-            val child = createMockNode(text = "Child")
-            val parent =
-                createMockNode(
-                    childCount = 1,
-                    children = listOf(child),
-                )
-
-            // Act
-            parser.parseTree(parent)
-
-            // Assert
-            @Suppress("DEPRECATION")
-            verify(exactly = 1) { child.recycle() }
-        }
-
-        @Test
         @DisplayName("truncates subtree when MAX_TREE_DEPTH is exceeded")
         fun truncatesSubtreeAtMaxDepth() {
             // Arrange - mock Log since truncation logs a warning
@@ -389,8 +353,8 @@ class AccessibilityTreeParserTest {
     @DisplayName("parseTree with nodeMap")
     inner class ParseTreeWithNodeMap {
         @Test
-        @DisplayName("does not recycle children when nodeMap is provided")
-        fun parseTreeWithNodeMapDoesNotRecycleChildren() {
+        @DisplayName("stores root and children when nodeMap is provided")
+        fun parseTreeWithNodeMapStoresAllNodes() {
             // Arrange
             val child1 = createMockNode(text = "Child 1")
             val child2 = createMockNode(text = "Child 2")
@@ -406,10 +370,6 @@ class AccessibilityTreeParserTest {
             parser.parseTree(root, nodeMap = nodeMap)
 
             // Assert
-            @Suppress("DEPRECATION")
-            verify(exactly = 0) { child1.recycle() }
-            @Suppress("DEPRECATION")
-            verify(exactly = 0) { child2.recycle() }
             assertEquals(3, nodeMap.size)
         }
 
@@ -750,7 +710,6 @@ class AccessibilityTreeParserTest {
                     depth = AccessibilityTreeParser.MAX_TREE_DEPTH,
                     index = 0,
                     parentId = "root",
-                    recycleNode = false,
                 )
 
             assertEquals(listOf("Upvote"), result.actions)

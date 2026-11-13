@@ -28,8 +28,8 @@ class AccessibilityNodeCacheImplTest {
     @DisplayName("populate")
     inner class Populate {
         @Test
-        @DisplayName("replaces cache without recycling old entries")
-        fun `populate replaces cache without recycling old entries`() {
+        @DisplayName("replaces cache")
+        fun `populate replaces cache`() {
             val nodeA = mockNode()
             val entriesA = mapOf("a" to CachedNode(nodeA, depth = 0, index = 0, parentId = "root"))
 
@@ -38,8 +38,6 @@ class AccessibilityNodeCacheImplTest {
 
             cache.populate(entriesA)
             cache.populate(entriesB)
-
-            verify(exactly = 0) { nodeA.recycle() }
 
             val result = cache.get("b")
             assertNotNull(result)
@@ -52,15 +50,14 @@ class AccessibilityNodeCacheImplTest {
         }
 
         @Test
-        @DisplayName("with empty map clears cache without recycling")
-        fun `populate with empty map clears cache without recycling`() {
+        @DisplayName("with empty map clears cache")
+        fun `populate with empty map clears cache`() {
             val node = mockNode()
             val entries = mapOf("x" to CachedNode(node, depth = 0, index = 0, parentId = "root"))
 
             cache.populate(entries)
             cache.populate(emptyMap())
 
-            verify(exactly = 0) { node.recycle() }
             assertEquals(0, cache.size())
         }
     }
@@ -101,8 +98,8 @@ class AccessibilityNodeCacheImplTest {
     @DisplayName("clear")
     inner class Clear {
         @Test
-        @DisplayName("removes all entries and recycles them")
-        fun `clear removes all entries and recycles them`() {
+        @DisplayName("removes all entries")
+        fun `clear removes all entries`() {
             val node1 = mockNode()
             val node2 = mockNode()
             val entries =
@@ -115,25 +112,6 @@ class AccessibilityNodeCacheImplTest {
             cache.clear()
 
             assertEquals(0, cache.size())
-            verify(exactly = 1) { node1.recycle() }
-            verify(exactly = 1) { node2.recycle() }
-        }
-
-        @Test
-        @DisplayName("after populate recycles only current entries")
-        fun `clear after populate recycles only current entries`() {
-            val nodeA = mockNode()
-            val entriesA = mapOf("a" to CachedNode(nodeA, depth = 0, index = 0, parentId = "root"))
-
-            val nodeB = mockNode()
-            val entriesB = mapOf("b" to CachedNode(nodeB, depth = 1, index = 0, parentId = "root"))
-
-            cache.populate(entriesA)
-            cache.populate(entriesB)
-            cache.clear()
-
-            verify(exactly = 0) { nodeA.recycle() }
-            verify(exactly = 1) { nodeB.recycle() }
         }
     }
 

@@ -1125,77 +1125,65 @@ private fun getFreshReadLocked(
     val accessibilityWindows = accessibilityServiceProvider.getAccessibilityWindows()
 
     if (accessibilityWindows.isNotEmpty()) {
-        try {
-            val currentPackageName = accessibilityServiceProvider.getCurrentPackageName()
-            val currentActivityName = accessibilityServiceProvider.getCurrentActivityName()
-            val windowDataList = mutableListOf<WindowData>()
+        val currentPackageName = accessibilityServiceProvider.getCurrentPackageName()
+        val currentActivityName = accessibilityServiceProvider.getCurrentActivityName()
+        val windowDataList = mutableListOf<WindowData>()
 
-            for (window in accessibilityWindows) {
-                val rootNode = window.root ?: continue
+        for (window in accessibilityWindows) {
+            val rootNode = window.root ?: continue
 
-                // Force the accessibility framework to re-query the underlying
-                // AccessibilityNodeProvider (e.g., Compose's virtual node provider).
-                // Without this, window.root can return stale cached snapshots —
-                // particularly problematic for Jetpack Compose apps where
-                // TYPE_WINDOW_CONTENT_CHANGED events may be throttled or missed.
-                rootNode.refresh()
+            // Force the accessibility framework to re-query the underlying
+            // AccessibilityNodeProvider (e.g., Compose's virtual node provider).
+            // Without this, window.root can return stale cached snapshots —
+            // particularly problematic for Jetpack Compose apps where
+            // TYPE_WINDOW_CONTENT_CHANGED events may be throttled or missed.
+            rootNode.refresh()
 
-                // Extract metadata BEFORE parsing
-                val wId = window.id
-                val windowPackage = rootNode.packageName?.toString()
-                val windowTitle = window.title?.toString()
-                val windowType = window.type
-                val windowLayer = window.layer
-                val windowFocused = window.isFocused
+            // Extract metadata BEFORE parsing
+            val wId = window.id
+            val windowPackage = rootNode.packageName?.toString()
+            val windowTitle = window.title?.toString()
+            val windowType = window.type
+            val windowLayer = window.layer
+            val windowFocused = window.isFocused
 
-                // Root nodes are NOT recycled — they are stored in accumulatedNodeMap
-                // and owned by the cache. On API 33+ recycle() is a no-op, but we
-                // avoid calling it on cached nodes for semantic clarity (Critical Finding 2).
-                val tree = treeParser.parseTree(rootNode, "root_w$wId", accumulatedNodeMap)
+            val tree = treeParser.parseTree(rootNode, "root_w$wId", accumulatedNodeMap)
 
-                // Best-effort activity name: only for focused APPLICATION window matching tracked package
-                val activityName =
-                    if (windowFocused &&
-                        windowType == AccessibilityWindowInfo.TYPE_APPLICATION &&
-                        windowPackage == currentPackageName
-                    ) {
-                        currentActivityName
-                    } else {
-                        null
-                    }
+            // Best-effort activity name: only for focused APPLICATION window matching tracked package
+            val activityName =
+                if (windowFocused &&
+                    windowType == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                    windowPackage == currentPackageName
+                ) {
+                    currentActivityName
+                } else {
+                    null
+                }
 
-                windowDataList.add(
-                    WindowData(
-                        windowId = wId,
-                        windowType = AccessibilityTreeParser.mapWindowType(windowType),
-                        packageName = windowPackage,
-                        title = windowTitle,
-                        activityName = activityName,
-                        layer = windowLayer,
-                        focused = windowFocused,
-                        tree = tree,
-                    ),
-                )
-            }
-
-            if (windowDataList.isEmpty()) {
-                throw McpToolException.ActionFailed(
-                    "All windows returned null root nodes.",
-                )
-            }
-
-            // Populate cache with ALL windows' nodes in a single atomic swap
-            nodeCache.populate(accumulatedNodeMap)
-
-            return FreshRead(MultiWindowResult(windows = windowDataList, degraded = false), accumulatedNodeMap)
-        } finally {
-            // Recycle all AccessibilityWindowInfo objects for consistency
-            // (no-op on API 34+, but follows the codebase's recycling convention)
-            for (w in accessibilityWindows) {
-                @Suppress("DEPRECATION")
-                w.recycle()
-            }
+            windowDataList.add(
+                WindowData(
+                    windowId = wId,
+                    windowType = AccessibilityTreeParser.mapWindowType(windowType),
+                    packageName = windowPackage,
+                    title = windowTitle,
+                    activityName = activityName,
+                    layer = windowLayer,
+                    focused = windowFocused,
+                    tree = tree,
+                ),
+            )
         }
+
+        if (windowDataList.isEmpty()) {
+            throw McpToolException.ActionFailed(
+                "All windows returned null root nodes.",
+            )
+        }
+
+        // Populate cache with ALL windows' nodes in a single atomic swap
+        nodeCache.populate(accumulatedNodeMap)
+
+        return FreshRead(MultiWindowResult(windows = windowDataList, degraded = false), accumulatedNodeMap)
     }
 
     // Fallback to single-window mode
@@ -1209,22 +1197,19 @@ private fun getFreshReadLocked(
     // Force fresh data from the accessibility framework (see multi-window path comment).
     rootNode.refresh()
 
-    // Extract metadata from the root node before recycling.
+    // Extract metadata from the root node.
     // Use rootNode.window (available API 21+) to detect the actual window type
     // instead of hardcoding APPLICATION — the active window could be SYSTEM, INPUT_METHOD, etc.
     val fallbackWindowId = rootNode.windowId
     val windowInfo = rootNode.window
     val fallbackWindowType =
         if (windowInfo != null) {
-            val type = AccessibilityTreeParser.mapWindowType(windowInfo.type)
-            @Suppress("DEPRECATION")
-            windowInfo.recycle()
-            type
+            AccessibilityTreeParser.mapWindowType(windowInfo.type)
         } else {
             "APPLICATION"
         }
 
-    // Fallback path also accumulates into the same map and does NOT recycle root node
+    // Fallback path also accumulates into the same map
     val tree = treeParser.parseTree(rootNode, "root_w$fallbackWindowId", accumulatedNodeMap)
 
     // Populate cache with fallback window's nodes

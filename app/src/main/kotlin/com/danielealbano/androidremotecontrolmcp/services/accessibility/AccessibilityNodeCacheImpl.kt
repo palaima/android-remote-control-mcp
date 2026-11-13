@@ -12,13 +12,9 @@ import javax.inject.Inject
  *
  * Uses atomic swap for lock-free cache replacement:
  * - [populate]: atomically swaps in a defensive copy of the provided map. Old entries are
- *   NOT recycled because a concurrent [get] call may still hold a reference to a [CachedNode]
- *   from the old map. Since `AccessibilityNodeInfo.recycle()` is a no-op on API 33+ (minSdk),
- *   GC safely collects unreferenced old entries. (P2 fix)
+ *   dropped and collected by GC.
  * - [get]: reads the current map (no locking).
- * - [clear]: atomically swaps to an empty map AND recycles old entries. Recycling is
- *   safe even with concurrent [get] callers because `AccessibilityNodeInfo.recycle()` is
- *   a no-op on API 33+ (minSdk). Called on service shutdown
+ * - [clear]: atomically swaps to an empty map. Called on service shutdown
  *   ([McpAccessibilityService.onDestroy]) and after a settled window transition (soft-keyboard
  *   show/hide, rotation, activity/dialog change); an in-flight node action keeps using the
  *   reference it already resolved, so concurrency with [get] is safe regardless of timing.
@@ -46,18 +42,10 @@ class AccessibilityNodeCacheImpl
 
         override fun clear() {
             val old = cache.getAndSet(emptyMap())
-            recycleEntries(old)
-            Log.d(TAG, "Cache cleared (recycled ${old.size} entries)")
+            Log.d(TAG, "Cache cleared (dropped ${old.size} entries)")
         }
 
         override fun size(): Int = cache.get().size
-
-        private fun recycleEntries(entries: Map<String, CachedNode>) {
-            for ((_, cached) in entries) {
-                @Suppress("DEPRECATION")
-                cached.node.recycle()
-            }
-        }
 
         companion object {
             private const val TAG = "MCP:NodeCache"

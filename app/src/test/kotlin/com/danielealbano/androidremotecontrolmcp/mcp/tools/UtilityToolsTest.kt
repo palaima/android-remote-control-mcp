@@ -109,7 +109,6 @@ class UtilityToolsTest {
         every { mockWindowInfo.title } returns "Test"
         every { mockWindowInfo.layer } returns 0
         every { mockWindowInfo.isFocused } returns true
-        every { mockWindowInfo.recycle() } returns Unit
         every { mockRootNode.refresh() } returns true
         every { mockRootNode.packageName } returns "com.example"
         // Raw-node walk support: rawNodeExists() reads these properties directly
@@ -530,11 +529,6 @@ class UtilityToolsTest {
 
             val result = rawNodeExists(FindBy.TEXT, "FoundInThirdWindow", mockAccessibilityServiceProvider)
             assertTrue(result)
-
-            // Verify all windows are recycled
-            verify { nullRootWindow1.recycle() }
-            verify { nullRootWindow2.recycle() }
-            verify { validWindow.recycle() }
         }
 
         @Test
@@ -643,39 +637,6 @@ class UtilityToolsTest {
             assertTrue(rawNodeExists(FindBy.TEXT, "hello", mockAccessibilityServiceProvider))
             assertTrue(rawNodeExists(FindBy.TEXT, "HELLO", mockAccessibilityServiceProvider))
             assertTrue(rawNodeExists(FindBy.TEXT, "World", mockAccessibilityServiceProvider))
-        }
-
-        @Test
-        fun `rawNodeExists recycles AccessibilityWindowInfo objects`() {
-            every { mockRootNode.text } returns "Found"
-
-            rawNodeExists(FindBy.TEXT, "Found", mockAccessibilityServiceProvider)
-
-            verify { mockWindowInfo.recycle() }
-        }
-
-        @Test
-        fun `rawNodeExists recycles AccessibilityWindowInfo objects on exception`() {
-            val badRoot = mockk<AccessibilityNodeInfo>()
-            every { badRoot.refresh() } returns true
-            every { badRoot.text } returns null
-            every { badRoot.contentDescription } returns null
-            every { badRoot.viewIdResourceName } returns null
-            every { badRoot.className } returns null
-            every { badRoot.childCount } returns 1
-            every { badRoot.availableExtraData } returns emptyList()
-            every { badRoot.getChild(0) } throws RuntimeException("Simulated crash")
-
-            every { mockWindowInfo.root } returns badRoot
-
-            try {
-                rawNodeExists(FindBy.TEXT, "anything", mockAccessibilityServiceProvider)
-            } catch (_: RuntimeException) {
-                // Expected
-            }
-
-            // Windows should still be recycled despite exception
-            verify { mockWindowInfo.recycle() }
         }
 
         @Test

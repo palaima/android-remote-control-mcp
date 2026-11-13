@@ -365,10 +365,6 @@ class WaitForNodeTool
  * [AccessibilityTreeParser.parseNode] to ensure fresh data from Jetpack Compose
  * and other virtual node providers.
  *
- * Child nodes obtained via [AccessibilityNodeInfo.getChild] are NOT recycled.
- * On API 33+ (this project's minSdk) [AccessibilityNodeInfo.recycle] is a no-op.
- * This matches the pattern used by [TreeFingerprint.populateFingerprintFromRaw].
- *
  * @param findBy The search criteria type.
  * @param value The search value (matched case-insensitive contains, same as
  *   [com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementFinder.matchesValue]
@@ -413,22 +409,15 @@ private fun rawNodeExistsLocked(
     val accessibilityWindows = accessibilityServiceProvider.getAccessibilityWindows()
 
     if (accessibilityWindows.isNotEmpty()) {
-        try {
-            for (window in accessibilityWindows) {
-                val rootNode = window.root ?: continue
-                rootNode.refresh()
-                if (rawNodeMatchesRecursive(rootNode, findBy, value, 0)) {
-                    return true
-                }
-            }
-            // All windows processed, no match
-            return false
-        } finally {
-            for (w in accessibilityWindows) {
-                @Suppress("DEPRECATION")
-                w.recycle()
+        for (window in accessibilityWindows) {
+            val rootNode = window.root ?: continue
+            rootNode.refresh()
+            if (rawNodeMatchesRecursive(rootNode, findBy, value, 0)) {
+                return true
             }
         }
+        // All windows processed, no match
+        return false
     }
 
     // Fallback to single-window mode
@@ -446,9 +435,6 @@ private fun rawNodeExistsLocked(
  * Recursively walks a raw [AccessibilityNodeInfo] tree checking for a match.
  * Returns true immediately on first match (early exit). Refreshes virtual/Compose
  * child nodes before reading their properties.
- *
- * Child nodes obtained via [AccessibilityNodeInfo.getChild] are NOT recycled —
- * [AccessibilityNodeInfo.recycle] is a no-op on API 33+ (this project's minSdk).
  */
 @Suppress("ReturnCount")
 private fun rawNodeMatchesRecursive(
@@ -626,21 +612,14 @@ class WaitForIdleTool
             val accessibilityWindows = accessibilityServiceProvider.getAccessibilityWindows()
 
             if (accessibilityWindows.isNotEmpty()) {
-                try {
-                    val rootNodes =
-                        accessibilityWindows.mapNotNull { window ->
-                            window.root
-                        }
-                    if (rootNodes.isEmpty()) {
-                        throw McpToolException.ActionFailed("All windows returned null root nodes.")
+                val rootNodes =
+                    accessibilityWindows.mapNotNull { window ->
+                        window.root
                     }
-                    return treeFingerprint.generateFromRawNodes(rootNodes)
-                } finally {
-                    for (w in accessibilityWindows) {
-                        @Suppress("DEPRECATION")
-                        w.recycle()
-                    }
+                if (rootNodes.isEmpty()) {
+                    throw McpToolException.ActionFailed("All windows returned null root nodes.")
                 }
+                return treeFingerprint.generateFromRawNodes(rootNodes)
             }
 
             // Fallback to single root node
