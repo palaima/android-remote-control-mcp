@@ -1,7 +1,17 @@
 package com.danielealbano.androidremotecontrolmcp.services.accessibility
 
 import android.view.KeyEvent
-import android.view.inputmethod.SurroundingText
+
+/**
+ * Text around the cursor of the focused field: [text] is the read window, [selectionStart] and [selectionEnd] are
+ * relative to it, and [offset] is where the window starts in the field, or -1 when the field does not report it.
+ */
+data class TextWindow(
+    val text: CharSequence,
+    val selectionStart: Int,
+    val selectionEnd: Int,
+    val offset: Int,
+)
 
 /**
  * Abstraction over AccessibilityInputConnection operations for natural text input.
@@ -69,13 +79,13 @@ interface TypeInputController {
      * @param beforeLength Characters to retrieve before cursor.
      * @param afterLength Characters to retrieve after cursor.
      * @param flags 0 or InputConnection.GET_TEXT_WITH_STYLES.
-     * @return SurroundingText, or null if unavailable.
+     * @return the window, or null if unavailable.
      */
     fun getSurroundingText(
         beforeLength: Int,
         afterLength: Int,
         flags: Int,
-    ): SurroundingText?
+    ): TextWindow?
 
     /**
      * Performs a context menu action on the focused text field.

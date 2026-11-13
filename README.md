@@ -119,6 +119,8 @@ On the token efficiency side, ADB-based tools typically return raw `uiautomator`
 
 ## Install
 
+The app needs Android 11 (API 30) or newer. On Android 11 and 12, text tools set the field text through accessibility actions instead of typing it character by character. Some fields refuse those actions; for them the app types through Shizuku when it is running and authorized.
+
 ### Which build to download: GMS or FOSS
 
 Each release provides two flavors of the APK — pick the one that matches your device:

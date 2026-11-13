@@ -1,6 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.di
 
 import android.content.Context
+import android.os.Build
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -37,6 +38,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.Accessib
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityServiceProviderImpl
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ActionExecutor
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ActionExecutorImpl
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.NodeTypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenStateSnapshotCache
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenStateSnapshotCacheImpl
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
@@ -99,6 +101,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import javax.inject.Provider
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -161,6 +164,20 @@ object AppModule {
     fun providePrivacyModelStore(
         @ApplicationContext context: Context,
     ): PrivacyModelStore = PrivacyModelStore(context.filesDir)
+
+    /**
+     * Provides the [TypeInputController]: the accessibility input method on Android 13+, the focused node (with
+     * Shizuku `input` as fallback) on Android 11 and 12.
+     */
+    @Provides
+    @Singleton
+    fun provideTypeInputController(
+        inputMethod: Provider<TypeInputControllerImpl>,
+        node: Provider<NodeTypeInputController>,
+    ): TypeInputController {
+        val hasAccessibilityInputMethod = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        return if (hasAccessibilityInputMethod) inputMethod.get() else node.get()
+    }
 }
 
 @Module
@@ -221,10 +238,6 @@ abstract class ServiceModule {
     @Binds
     @Singleton
     abstract fun bindApiLevelProvider(impl: DefaultApiLevelProvider): ApiLevelProvider
-
-    @Binds
-    @Singleton
-    abstract fun bindTypeInputController(impl: TypeInputControllerImpl): TypeInputController
 
     @Binds
     @Singleton

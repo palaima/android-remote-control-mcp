@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.service.notification.StatusBarNotification
 import com.danielealbano.androidremotecontrolmcp.utils.Logger
+import com.danielealbano.androidremotecontrolmcp.utils.applicationInfo
 import java.util.concurrent.ConcurrentHashMap
 
 object NotificationDataExtractor {
@@ -23,7 +24,7 @@ object NotificationDataExtractor {
                 try {
                     pm
                         .getApplicationLabel(
-                            pm.getApplicationInfo(sbn.packageName, PackageManager.ApplicationInfoFlags.of(0)),
+                            pm.applicationInfo(sbn.packageName),
                         ).toString()
                 } catch (_: PackageManager.NameNotFoundException) {
                     Logger.d(TAG, "App not found for ${sbn.packageName}, using package name")

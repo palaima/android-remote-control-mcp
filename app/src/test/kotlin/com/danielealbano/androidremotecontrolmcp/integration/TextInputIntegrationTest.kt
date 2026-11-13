@@ -2,12 +2,12 @@
 
 package com.danielealbano.androidremotecontrolmcp.integration
 
-import android.view.inputmethod.SurroundingText
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityNodeData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.BoundsData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementInfo
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.FindBy
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenInfo
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
 import com.danielealbano.androidremotecontrolmcp.testutil.FakeTextField
 import io.mockk.coEvery
@@ -59,14 +59,7 @@ class TextInputIntegrationTest {
     private fun createMockSurroundingText(
         text: String,
         offset: Int = 0,
-    ): SurroundingText {
-        val mock = mockk<SurroundingText>()
-        every { mock.text } returns text
-        every { mock.offset } returns offset
-        every { mock.selectionStart } returns text.length
-        every { mock.selectionEnd } returns text.length
-        return mock
-    }
+    ): TextWindow = TextWindow(text, text.length, text.length, offset)
 
     @BeforeEach
     fun setUp() {

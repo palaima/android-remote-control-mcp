@@ -1,6 +1,6 @@
 package com.danielealbano.androidremotecontrolmcp.testutil
 
-import android.view.inputmethod.SurroundingText
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import io.mockk.every
 import io.mockk.mockk
@@ -67,7 +67,7 @@ class FakeTextField(
     private fun window(
         before: Int,
         after: Int,
-    ): SurroundingText {
+    ): TextWindow {
         val shown =
             if (readsBehind > 0) {
                 readsBehind--
@@ -83,11 +83,7 @@ class FakeTextField(
         val windowOffset = if (reportsOffset) start else -1
         val windowSelectionStart = cursorStart - start
         val windowSelectionEnd = cursorEnd - start
-        val surrounding = mockk<SurroundingText>()
-        every { surrounding.text } returns windowText
-        every { surrounding.offset } returns windowOffset
-        every { surrounding.selectionStart } returns windowSelectionStart
-        every { surrounding.selectionEnd } returns windowSelectionEnd
+        val surrounding = TextWindow(windowText, windowSelectionStart, windowSelectionEnd, windowOffset)
         return surrounding
     }
 }

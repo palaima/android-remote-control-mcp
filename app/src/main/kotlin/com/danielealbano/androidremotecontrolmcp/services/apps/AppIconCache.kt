@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.core.graphics.drawable.toBitmap
 import com.danielealbano.androidremotecontrolmcp.utils.Logger
+import com.danielealbano.androidremotecontrolmcp.utils.activitiesFor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -130,7 +131,7 @@ class AppIconCache
                     addCategory(android.content.Intent.CATEGORY_LAUNCHER)
                 }
             return pm
-                .queryIntentActivities(launchIntent, PackageManager.ResolveInfoFlags.of(0))
+                .activitiesFor(launchIntent)
                 .mapNotNull { resolveInfo ->
                     val pkgName = resolveInfo.activityInfo?.packageName ?: return@mapNotNull null
                     val label = resolveInfo.loadLabel(pm).toString()

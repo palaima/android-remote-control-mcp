@@ -1,6 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.data.model
 
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 
@@ -77,13 +78,13 @@ enum class BuiltinStorageLocation(
             listOf(
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Images.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_IMAGES,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_IMAGES),
                     mimeTypePrefix = "image/",
                     typeLabel = "images",
                 ),
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Video.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_VIDEO,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_VIDEO),
                     mimeTypePrefix = "video/",
                     typeLabel = "videos",
                 ),
@@ -97,7 +98,7 @@ enum class BuiltinStorageLocation(
             listOf(
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Video.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_VIDEO,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_VIDEO),
                     mimeTypePrefix = "video/",
                     typeLabel = "videos",
                 ),
@@ -111,7 +112,7 @@ enum class BuiltinStorageLocation(
             listOf(
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Audio.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_AUDIO,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_AUDIO),
                     mimeTypePrefix = "audio/",
                     typeLabel = "audio",
                 ),
@@ -125,13 +126,13 @@ enum class BuiltinStorageLocation(
             listOf(
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Images.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_IMAGES,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_IMAGES),
                     mimeTypePrefix = "image/",
                     typeLabel = "images",
                 ),
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Video.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_VIDEO,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_VIDEO),
                     mimeTypePrefix = "video/",
                     typeLabel = "videos",
                 ),
@@ -145,7 +146,7 @@ enum class BuiltinStorageLocation(
             listOf(
                 MediaCollection(
                     collectionUriProvider = { MediaStore.Audio.Media.EXTERNAL_CONTENT_URI },
-                    readMediaPermission = android.Manifest.permission.READ_MEDIA_AUDIO,
+                    readMediaPermission = mediaReadPermission(android.Manifest.permission.READ_MEDIA_AUDIO),
                     mimeTypePrefix = "audio/",
                     typeLabel = "audio",
                 ),
@@ -208,3 +209,14 @@ enum class BuiltinStorageLocation(
         private val CONTROL_CHAR_REGEX = Regex("[\\p{Cntrl}]")
     }
 }
+
+/**
+ * The runtime permission that grants read access to a media collection: [readMedia] (a `READ_MEDIA_*` permission) on
+ * Android 13+, READ_EXTERNAL_STORAGE on older versions, which have no per-type media permissions.
+ */
+internal fun mediaReadPermission(readMedia: String): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        readMedia
+    } else {
+        android.Manifest.permission.READ_EXTERNAL_STORAGE
+    }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
@@ -12,8 +13,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @DisplayName("AppIconCache")
+@ExtendWith(SdkIntExtension::class)
 class AppIconCacheTest {
     private lateinit var pm: PackageManager
     private lateinit var cache: AppIconCache

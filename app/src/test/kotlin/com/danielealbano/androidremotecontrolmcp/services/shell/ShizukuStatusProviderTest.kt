@@ -3,14 +3,17 @@ package com.danielealbano.androidremotecontrolmcp.services.shell
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @DisplayName("ShizukuStatusProviderImpl")
+@ExtendWith(SdkIntExtension::class)
 class ShizukuStatusProviderTest {
     private val pm = mockk<PackageManager>()
     private val context = mockk<Context> { every { packageManager } returns pm }

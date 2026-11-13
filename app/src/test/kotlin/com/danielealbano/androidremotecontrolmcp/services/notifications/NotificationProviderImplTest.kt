@@ -9,6 +9,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
+import com.danielealbano.androidremotecontrolmcp.testutil.Sdk33Extension
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 @DisplayName("NotificationProviderImplTest")
+@ExtendWith(Sdk33Extension::class)
 class NotificationProviderImplTest {
     @MockK
     private lateinit var mockContext: Context

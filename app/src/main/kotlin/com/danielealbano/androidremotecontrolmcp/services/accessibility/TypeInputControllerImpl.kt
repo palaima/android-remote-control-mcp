@@ -1,8 +1,9 @@
 package com.danielealbano.androidremotecontrolmcp.services.accessibility
 
+import android.os.Build
 import android.text.InputType
 import android.view.KeyEvent
-import android.view.inputmethod.SurroundingText
+import androidx.annotation.RequiresApi
 import javax.inject.Inject
 
 /**
@@ -27,6 +28,7 @@ import javax.inject.Inject
  * `void`. The Boolean return here indicates IC availability only — NOT whether
  * the target field accepted the operation.
  */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class TypeInputControllerImpl
     @Inject
     constructor() : TypeInputController {
@@ -58,7 +60,10 @@ class TypeInputControllerImpl
             beforeLength: Int,
             afterLength: Int,
             flags: Int,
-        ): SurroundingText? = getInputConnection()?.getSurroundingText(beforeLength, afterLength, flags)
+        ): TextWindow? =
+            getInputConnection()?.getSurroundingText(beforeLength, afterLength, flags)?.let {
+                TextWindow(it.text, it.selectionStart, it.selectionEnd, it.offset)
+            }
 
         override fun performContextMenuAction(id: Int): Boolean {
             val ic = getInputConnection() ?: return false

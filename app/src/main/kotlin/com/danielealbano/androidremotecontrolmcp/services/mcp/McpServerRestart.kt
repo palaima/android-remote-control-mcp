@@ -1,10 +1,10 @@
 package com.danielealbano.androidremotecontrolmcp.services.mcp
 
-import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
+import com.danielealbano.androidremotecontrolmcp.utils.isForegroundStartRefused
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -49,7 +49,8 @@ internal fun restartMcpServer(context: Context) {
 private fun restartMcpServerSwallowingFgs(context: Context) {
     try {
         restartMcpServer(context)
-    } catch (e: ForegroundServiceStartNotAllowedException) {
+    } catch (e: IllegalStateException) {
+        if (!isForegroundStartRefused(e)) throw e
         Log.w(TAG, "Cannot restart MCP server: foreground start not allowed (app not battery-exempt)", e)
     }
 }

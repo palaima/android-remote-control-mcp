@@ -9,7 +9,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.RectF
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.inputmethod.SurroundingText
 import com.danielealbano.androidremotecontrolmcp.data.model.PlaceholderFormat
 import com.danielealbano.androidremotecontrolmcp.data.model.PrivacyModeConfig
 import com.danielealbano.androidremotecontrolmcp.data.model.RedactionMode
@@ -24,6 +23,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.Accessib
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.BoundsData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementInfo
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ScreenInfo
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
 import com.danielealbano.androidremotecontrolmcp.services.notifications.NotificationData
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenCaptureProvider
@@ -503,12 +503,5 @@ class PrivacyModeIntegrationTest {
         return (result.content[0] as TextContent).text
     }
 
-    private fun mockSurroundingText(text: String): SurroundingText {
-        val mock = mockk<SurroundingText>()
-        every { mock.text } returns text
-        every { mock.offset } returns 0
-        every { mock.selectionStart } returns text.length
-        every { mock.selectionEnd } returns text.length
-        return mock
-    }
+    private fun mockSurroundingText(text: String): TextWindow = TextWindow(text, text.length, text.length, 0)
 }

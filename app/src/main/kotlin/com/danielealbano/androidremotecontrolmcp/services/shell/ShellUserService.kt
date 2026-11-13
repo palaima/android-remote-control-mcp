@@ -1,11 +1,11 @@
 package com.danielealbano.androidremotecontrolmcp.services.shell
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.util.Log
+import com.danielealbano.androidremotecontrolmcp.utils.packageUid
 import java.io.IOException
 import kotlin.system.exitProcess
 
@@ -15,7 +15,7 @@ class ShellUserService(
     context: Context,
 ) : IShellService.Stub() {
     private val appUid =
-        context.packageManager.getPackageUid(context.packageName, PackageManager.PackageInfoFlags.of(0))
+        context.packageManager.packageUid(context.packageName)
     private val host = ShellProcessHost(ShellScriptBuilder.ANDROID_SHELL_PATH, ::killProcessGroup)
 
     init {

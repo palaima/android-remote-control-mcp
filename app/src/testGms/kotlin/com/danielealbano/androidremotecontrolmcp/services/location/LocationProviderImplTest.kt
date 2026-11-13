@@ -8,6 +8,7 @@ import android.location.Geocoder
 import android.location.Location
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -37,8 +38,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@ExtendWith(SdkIntExtension::class)
 @DisplayName("LocationProviderImpl")
 class LocationProviderImplTest {
     private lateinit var mockContext: Context

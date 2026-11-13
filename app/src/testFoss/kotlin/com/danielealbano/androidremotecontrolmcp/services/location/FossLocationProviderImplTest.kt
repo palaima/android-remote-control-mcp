@@ -7,6 +7,7 @@ import android.location.Location
 import android.location.LocationManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -21,8 +22,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@ExtendWith(SdkIntExtension::class)
 @DisplayName("FossLocationProviderImpl")
 class FossLocationProviderImplTest {
     private val context = mockk<Context>(relaxed = true)

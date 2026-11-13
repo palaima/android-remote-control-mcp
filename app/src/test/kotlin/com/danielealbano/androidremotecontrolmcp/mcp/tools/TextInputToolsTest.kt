@@ -5,7 +5,6 @@ package com.danielealbano.androidremotecontrolmcp.mcp.tools
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
-import android.view.inputmethod.SurroundingText
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 import com.danielealbano.androidremotecontrolmcp.privacy.PrivacyToolGate
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.AccessibilityNodeCache
@@ -16,10 +15,12 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.ActionEx
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.BoundsData
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.CachedNode
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementFinder
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
 import com.danielealbano.androidremotecontrolmcp.testutil.FakeTextField
 import com.danielealbano.androidremotecontrolmcp.testutil.PrivacyToolTestDoubles
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import com.danielealbano.androidremotecontrolmcp.testutil.readNodesOf
 import io.mockk.clearMocks
 import io.mockk.coEvery
@@ -46,7 +47,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
 
+@ExtendWith(SdkIntExtension::class)
 @DisplayName("TextInputTools")
 class TextInputToolsTest {
     private val mockTreeParser = mockk<AccessibilityTreeParser>()
@@ -109,14 +112,7 @@ class TextInputToolsTest {
     private fun createMockSurroundingText(
         text: String,
         offset: Int = 0,
-    ): SurroundingText {
-        val mock = mockk<SurroundingText>()
-        every { mock.text } returns text
-        every { mock.offset } returns offset
-        every { mock.selectionStart } returns text.length
-        every { mock.selectionEnd } returns text.length
-        return mock
-    }
+    ): TextWindow = TextWindow(text, text.length, text.length, offset)
 
     /**
      * Sets up mockTypeInputController to handle per-character verification.

@@ -1,6 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.data.model
 
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -10,8 +11,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @DisplayName("BuiltinStorageLocation")
+@ExtendWith(SdkIntExtension::class)
 class BuiltinStorageLocationTest {
     @Nested
     @DisplayName("fromLocationId")

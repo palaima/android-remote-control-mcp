@@ -1,6 +1,5 @@
 package com.danielealbano.androidremotecontrolmcp.services.tunnel.arctunnel
 
-import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.Service
 import android.content.Context
@@ -12,6 +11,7 @@ import com.danielealbano.androidremotecontrolmcp.BuildConfig
 import com.danielealbano.androidremotecontrolmcp.McpApplication
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
+import com.danielealbano.androidremotecontrolmcp.utils.isForegroundStartRefused
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -124,7 +124,8 @@ class ArcTunnelEnrollService : Service() {
             return try {
                 context.startForegroundService(intent)
                 true
-            } catch (e: ForegroundServiceStartNotAllowedException) {
+            } catch (e: IllegalStateException) {
+                if (!isForegroundStartRefused(e)) throw e
                 Log.w(TAG, "foreground service start refused (app in the background)", e)
                 false
             }

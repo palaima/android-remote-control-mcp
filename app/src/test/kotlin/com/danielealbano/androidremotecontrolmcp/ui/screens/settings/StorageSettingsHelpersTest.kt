@@ -3,13 +3,16 @@ package com.danielealbano.androidremotecontrolmcp.ui.screens.settings
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 
 @DisplayName("StorageSettings helpers")
+@ExtendWith(SdkIntExtension::class)
 class StorageSettingsHelpersTest {
     @Test
     fun `request permissions include user selected for visual locations`() {

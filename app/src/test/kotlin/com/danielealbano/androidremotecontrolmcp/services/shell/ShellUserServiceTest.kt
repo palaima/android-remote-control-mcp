@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.RemoteException
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -17,8 +18,10 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
 
 @DisplayName("ShellUserService")
+@ExtendWith(SdkIntExtension::class)
 class ShellUserServiceTest {
     private val pm =
         mockk<PackageManager> {

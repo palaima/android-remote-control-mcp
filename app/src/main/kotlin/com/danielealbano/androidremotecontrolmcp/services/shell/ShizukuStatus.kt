@@ -1,7 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.services.shell
 
 import android.content.Context
-import android.content.pm.PackageManager
+import com.danielealbano.androidremotecontrolmcp.utils.packageInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import rikka.shizuku.ShizukuProvider
 import javax.inject.Inject
@@ -59,10 +59,7 @@ class ShizukuStatusProviderImpl
 
         private fun isInstalled(): Boolean =
             runCatching {
-                context.packageManager.getPackageInfo(
-                    ShizukuProvider.MANAGER_APPLICATION_ID,
-                    PackageManager.PackageInfoFlags.of(0),
-                )
+                context.packageManager.packageInfo(ShizukuProvider.MANAGER_APPLICATION_ID)
             }.isSuccess
     }
 

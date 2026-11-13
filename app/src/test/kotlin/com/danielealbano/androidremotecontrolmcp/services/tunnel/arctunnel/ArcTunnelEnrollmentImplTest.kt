@@ -4,6 +4,7 @@ import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
 import android.content.Intent
 import com.danielealbano.androidremotecontrolmcp.testutil.RecordingServerLogRepository
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.security.KeyPair
@@ -41,6 +43,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("ArcTunnelEnrollmentImpl")
+@ExtendWith(SdkIntExtension::class)
 class ArcTunnelEnrollmentImplTest {
     @TempDir
     lateinit var filesDir: File

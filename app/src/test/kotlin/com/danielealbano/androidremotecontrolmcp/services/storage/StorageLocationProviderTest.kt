@@ -13,6 +13,7 @@ import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinPermissions
 import com.danielealbano.androidremotecontrolmcp.data.model.StorageBackend
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
+import com.danielealbano.androidremotecontrolmcp.testutil.SdkIntExtension
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 @DisplayName("StorageLocationProviderImpl")
+@ExtendWith(SdkIntExtension::class)
 class StorageLocationProviderTest {
     @MockK
     private lateinit var mockContext: Context

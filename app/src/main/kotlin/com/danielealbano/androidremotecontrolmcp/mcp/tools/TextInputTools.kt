@@ -2,10 +2,10 @@
 
 package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.inputmethod.SurroundingText
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 import com.danielealbano.androidremotecontrolmcp.privacy.PlaceholderSubstitutor
@@ -18,6 +18,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.Accessib
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ActionExecutor
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.CachedNode
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.ElementFinder
+import com.danielealbano.androidremotecontrolmcp.services.accessibility.TextWindow
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.TypeInputController
 import com.danielealbano.androidremotecontrolmcp.services.accessibility.WindowData
 import io.modelcontextprotocol.kotlin.sdk.server.Server
@@ -278,7 +279,7 @@ private fun preRetryLengthCheckPassed(
  * (fewer than MAX_SURROUNDING_TEXT_LENGTH characters before the cursor), or null when neither holds (a field that
  * reports no offset, like a Compose text field, with the cursor further in) or the read failed.
  */
-private fun typedLength(window: SurroundingText?): Int? =
+private fun typedLength(window: TextWindow?): Int? =
     when {
         window == null -> null
         window.offset >= 0 -> window.offset + window.text.length
@@ -530,7 +531,7 @@ internal fun readWholeField(
 }
 
 /** Whether [window], read with MAX_SURROUNDING_TEXT_LENGTH asked on each side of the cursor, holds the whole field. */
-private fun coversField(window: SurroundingText): Boolean =
+private fun coversField(window: TextWindow): Boolean =
     window.selectionStart < MAX_SURROUNDING_TEXT_LENGTH &&
         window.text.length - window.selectionEnd < MAX_SURROUNDING_TEXT_LENGTH
 
@@ -1618,6 +1619,8 @@ private fun findFocusedEditableNodeLocked(accessibilityServiceProvider: Accessib
         }
     }
 
+    // Android 11 and 12 cannot clear the framework cache (see clearFrameworkNodeCache), so re-read the node itself
+    if (foundNode != null && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) foundNode.refresh()
     if (foundNode != null) return foundNode
 
     // Fallback: try rootInActiveWindow if getWindows() returned empty

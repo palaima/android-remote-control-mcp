@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -22,6 +23,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ScreenshotPacer
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -244,6 +246,7 @@ class McpAccessibilityService : AccessibilityService() {
         )
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreateInputMethod(): InputMethod {
         val method = McpInputMethod(this)
         inputMethodInstance = method
@@ -311,8 +314,11 @@ class McpAccessibilityService : AccessibilityService() {
                     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
                 feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
                 flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-                    AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-                    AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR
+                    AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                // The input method the type tools use exists from Android 13; older versions type through the node
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    flags = flags or AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR
+                }
                 notificationTimeout = NOTIFICATION_TIMEOUT_MS
             }
         if (serviceInfo == null) {
@@ -383,17 +389,19 @@ class McpAccessibilityService : AccessibilityService() {
     fun canTakeScreenshot(): Boolean = true
 
     /**
-     * Drops the framework's accessibility node cache for this service via [clearCache] (public
-     * since API 33; minSdk is 33). See [AccessibilityServiceProvider.clearFrameworkNodeCache] for
-     * why this is needed to defeat stale WebView reads after JavaScript DOM changes.
+     * Drops the framework's accessibility node cache for this service via [clearCache]. See
+     * [AccessibilityServiceProvider.clearFrameworkNodeCache] for why this is needed to defeat stale
+     * WebView reads after JavaScript DOM changes. [clearCache] is Android 13+ (API 33); Android 11
+     * and 12 have no public way to clear that cache, so there it does nothing.
      *
      * This is distinct from [invalidateCache], which flushes our own id→node [nodeCache]; this
      * clears the framework-side cache that backs [rootInActiveWindow]/[getWindows] traversal.
      */
     fun clearFrameworkNodeCache() {
-        clearCache()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) clearCache()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     class McpInputMethod(
         service: AccessibilityService,
     ) : InputMethod(service)
